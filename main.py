@@ -28,9 +28,12 @@ def onAppStart(app: any):
     app.state["selectedMenu"] = "builder" 
     app.state["selectedCourseGroup"] = "test"
     app.state["activeButtons"] = []
+    app.state["courseInput"] = ""
+    app.state["courseInputError"] = "ERROR: NO SUCH COURSE"
     #-----------------------------------------
+    addCourse(app, '15112')
 
-    
+
 
 def redrawAll(app: any):
     app.state["activeButtons"] = []
@@ -46,14 +49,28 @@ def onMousePress(app, mouseX: int, mouseY:int):
         button.checkClick(mouseX,mouseY)
 
 
+def onKeyPress(app,key):
+    if key.isnumeric() and app.state["selectedMenu"] =="builder" and len(app.state["courseInput"]) < 5:
+        app.state["courseInput"] += key
+    elif key =="backspace":
+        app.state["courseInput"] = app.state["courseInput"][:-1]
+
+
+
+def addCourse(app:any, courseID: int):
+    # courseID = courseID[:2] + "-"+ courseID[2:]
+    print(app.course_df.iloc[:13])
+    courses = app.course_df[app.course_df["Course"] == courseID]
+    print(courses)
+
 class Course():
+    
     def __init__(self,code: str, title:str,units:int,instructors: List[str]):
         self.code = code
         self.title = title
         self.instructors = instructors
         self.units = units
         self.color = rgb(*getRandomColor())
-
 
 
 # Rank, CourseCodes, Workload, Instructor Score, Average Break(Median or Mean),Overall
@@ -85,7 +102,6 @@ class NavBar():
         self.bg_color = rgb(245,246,248)
         self.builderButton =  Button(lambda: app.state.update({"selectedMenu":"builder"}) ,30,40,self.width-60,40,fill=rgb(45,45,45))
         self.schedulesButton =  Button(lambda: app.state.update({"selectedMenu":"schedules"}) ,30,90,self.width-60,40,fill=rgb(45,45,45))
-        self.courseInput = ""
         
     def draw(self):
         drawRect(0,0,self.width,self.app.height,fill=self.bg_color)
@@ -113,8 +129,12 @@ class NavBar():
         yOff+= self.app.primaryFontSize 
 
         #search bar
+
+        courseInput = self.app.state["courseInput"] 
+        inputFillColor = rgb(48,48,48) if courseInput == "" else "Black"
+        courseInput = "Course ID" if courseInput == "" else courseInput
         drawRect(10,yOff,self.width//2, 24,fill="White",border="Black")
-        drawLabel("Course ID", 20, yOff+12,fill=rgb(150,150,150),size=self.app.secondaryFontSize, align="left")
+        drawLabel(courseInput, 20, yOff+12,fill=inputFillColor,size=self.app.primaryFontSize, align="left")
         drawRect(self.width//2 +20 ,yOff,self.width//2 - 60, 24,fill=rgb(48,48,48))
         drawLabel("Add",self.width//2 +20  +(self.width//2 - 60)//2,yOff+12,fill="White",size=self.app.primaryFontSize)
         yOff += 54

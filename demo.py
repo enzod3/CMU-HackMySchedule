@@ -4,7 +4,7 @@ from cmu_graphics import *
 
 
 def onAppStart(app):
-    app.course_df = pd.read_csv("./data/spring_24.dat", delimiter='\t')
+    app.course_df = pd.read_csv("./data/spring_24.htm", delimiter='\t')
     app.rating_df = pd.read_json("./data/TeacherRatings.json")
     getProfessorCourseRating(app,"15112","taylor")
     
