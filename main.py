@@ -1,6 +1,6 @@
 import pandas as pd
 from cmu_graphics import *
-from typing import Set,List,Dict,Callable
+from typing import Set,Dict,Callable
 import random
 from colorsys import hsv_to_rgb
 
@@ -25,7 +25,7 @@ def onAppStart(app: any):
     #------------- APP STORAGE --------------
     app.schedules = dict()
     # app.courseGroups = {}
-    app.courseGroup = dict()# Key: List[Course]
+    app.courseGroup = dict()# Key: list[Course]
         # "test": CourseGroup({"Required":{Course('15112','Fundamentals of Programming and Computer Science',['Mike'],48)}})
     #-----------------------------------------
 
@@ -52,100 +52,6 @@ def onAppStart(app: any):
     exit()
     
 
-def redrawAll(app: any):
-    app.state["activeButtons"] = []
-    app.navbar.draw()
-    match app.state["selectedMenu"]:
-        case "builder":
-            app.courseview.draw()
-        case "schedules":
-            app.scheduleview.draw()
-
-def onMousePress(app, mouseX: int, mouseY:int):
-    for button in app.state["activeButtons"]:
-        button.checkClick(mouseX,mouseY)
-
-
-def onKeyPress(app,key):
-    app.state["courseInputError"] = ""
-    if key.isnumeric() and app.state["selectedMenu"] =="builder" and len(app.state["courseInput"]) < 5:
-        app.state["courseInput"] += key
-    elif key.isalpha() and len(key) == 1 and app.state["selectedMenu"] =="builder" and len(app.state["groupInput"]) < 20:
-        app.state["groupInput"] += key
-    elif key =="backspace":
-        # app.state["courseInput"] = app.state["courseInput"][:-1]
-        app.state["courseInput"] = ""
-        app.state["groupInput"] = ""
-    elif key =="enter" and len(app.state["courseInput"]) == 5:
-        addCourseHelper(app)
-
-
-def addCourseHelper(app):
-    try:
-        groupID = app.state["groupInput"] if app.state["groupInput"] != "" else "Required"
-        addCourse(app,groupID,app.state["courseInput"])
-    except Exception as e:
-        app.state["courseInputError"] = e
-    app.state["courseInput"] = ""
-    app.state["groupInput"] = ""
-
-def addCourse(app:any, groupID: str, courseID: int):
-    if (df_filtered := app.course_df[app.course_df["Course"] == courseID]).empty:
-        raise ValueError("Course does not exist")
-    courseIndex = df_filtered.index[0]
-    course = app.course_df.iloc[courseIndex]
-    courseInfo = dict()
-    courseInfo["courseID"] = courseID
-    courseInfo["title"] = course["Title"]
-    courseInfo["units"] = float(course["Units"])
-    courseInfo["lectures"] = set()
-    courseInfo["sections"] = set()
-
-    courseIndex += 1 #nextLine
-    if pd.isnull(courseInfo["units"]):
-        course = app.course_df.iloc[courseIndex]
-        courseInfo["units"] = float(course["Units"])
-
-    while pd.isnull((courseSection := app.course_df.iloc[courseIndex])["Course"]) and courseIndex < len(app.course_df): #get all times for course
-        newSection = Section(courseSection["Lec/Sec"],courseSection["Days"],courseSection["Begin"],courseSection["End"],courseSection["Bldg/Room"],courseSection["Location"],courseSection["Instructor(s)"])		
-        courseIndex += 1
-        while pd.isnull((courseSection := app.course_df.iloc[courseIndex])["Lec/Sec"]) and courseIndex < len(app.course_df): #multiple days/times/locations per section
-            if pd.isnull(app.course_df.iloc[courseIndex]["Days"]):
-                break
-            newSection.addDays(courseSection["Days"],courseSection["Begin"],courseSection["End"],courseSection["Bldg/Room"],courseSection["Location"],courseSection["Instructor(s)"])
-            courseIndex += 1
-        if "lec" in newSection.section.lower():
-            courseInfo["lectures"].add(newSection)
-        else:
-            courseInfo["sections"].add(newSection)
-
-    newCourse = Course(**courseInfo)
-    if groupID in app.courseGroup:
-        app.courseGroup[groupID] += [newCourse]
-    else:
-        app.courseGroup[groupID] = [newCourse]
-
-    if sum([len(app.courseGroup[groupID]) for groupID in app.courseGroup]) >= 4:
-        # generateSchedules(app)
-        pass
-
-def generateSchedules(app: any):
-
-
-    print(generateSchedulesHelper(app.courseGroup,[3,3,1],None,None))
-
-
-    # for groupID in app.courseGroup:
-    #     for course in app.courseGroup[groupID]:
-    #         print(course.title)
-    #         print(course.units)
-
-
-def generateSchedulesHelper(courses, targetSize, schedule, solutions):
-    if all(len(courses[k]) == s for (k,s) in zip(courses,targetSize)): #Check if we have reach target schedule format https://docs.python.org/3.3/library/functions.html#zip
-        print(True)
-
-
 class Period():
     def __init__(self, day: str, begin: str,end: str):
         self.day = day
@@ -159,7 +65,7 @@ class Period():
         return minutes
 
 class Day():
-    def __init__(self,day:str,begin:str,end:str,bld_room:str,location:str,instructors: List[str]):
+    def __init__(self,day:str,begin:str,end:str,bld_room:str,location:str,instructors: list[str]):
         self.day = day
         self.period = Period(day,begin,end)
         self.bld_room = bld_room
@@ -167,12 +73,12 @@ class Day():
         self.instructors = instructors
 
 class Section(): #lectures/sections
-    def __init__(self,section:str,days:str,begin:str,end:str,bld_room:str,location:str, instructors: List[str]):
+    def __init__(self,section:str,days:str,begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
         self.section = section
         self.days = set()
         self.addDays(days,begin,end,bld_room,location,instructors)
 
-    def addDays(self, days:str, begin:str,end:str,bld_room:str,location:str, instructors: List[str]):
+    def addDays(self, days:str, begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
         for day in days:    
             self.days.add(Day(day,begin,end,bld_room,location,instructors))
 
@@ -184,13 +90,24 @@ class Course():
         self.lectures = lectures
         self.sections = sections
         self.color = rgb(*getRandomColor())
+    def __repr__(self):
+        return f"{self.courseID}"
+    def __eq__(self,other):
+        return isinstance(other,type(self)) and ((self.courseID,self.title,self.units,self.lectures,self.sections)==(other.courseID,other.title,other.units,other.lectures,other.sections))
+    def __hash__(self): #https://docs.python.org/3.5/reference/datamodel.html#object.__hash__
+        return hash((self.courseID,self.title,self.units,self.lectures,self.sections))
 
 # Rank, CourseCodes, Workload, Instructor Score, Average Break(Median or Mean),Overall
 class Schedule():
-    def __init__(self,courses: List[Course]):
+    def __init__(self,courses: list[Course]):
         self.name = None
         self.courses = courses
-        self.totalUnits = self.getTotalUnits()
+        # self.totalUnits = self.getTotalUnits()
+    def addCourse(self,course):
+        self.courses += [course]
+    def getScheduleCount(self):
+        return len(self.courses)
+
     def getTotalUnits(self) -> float:
         return sum([course.units for course in self.courses])
     def getWorkload(self) -> float:
@@ -276,8 +193,6 @@ class NavBar():
         drawLabel(course.courseID,15,yOff+25,size=self.app.secondaryFontSize,align="left",fill="White")
         return 40
     
-
-
 class Button():
     def __init__(self,onclick: Callable,*args,**kwargs):
         self.onclick = onclick
@@ -323,6 +238,99 @@ class ScheduleView():
     def draw(self):
         viewWidth = self.app.width - self.xOffset
         drawLabel("Schedules",self.xOffset + viewWidth//2,20,size=20)
+
+def redrawAll(app: any):
+    app.state["activeButtons"] = []
+    app.navbar.draw()
+    match app.state["selectedMenu"]:
+        case "builder":
+            app.courseview.draw()
+        case "schedules":
+            app.scheduleview.draw()
+
+def onMousePress(app, mouseX: int, mouseY:int):
+    for button in app.state["activeButtons"]:
+        button.checkClick(mouseX,mouseY)
+
+def onKeyPress(app,key):
+    app.state["courseInputError"] = ""
+    if key.isnumeric() and app.state["selectedMenu"] =="builder" and len(app.state["courseInput"]) < 5:
+        app.state["courseInput"] += key
+    elif key.isalpha() and len(key) == 1 and app.state["selectedMenu"] =="builder" and len(app.state["groupInput"]) < 20:
+        app.state["groupInput"] += key
+    elif key =="backspace":
+        # app.state["courseInput"] = app.state["courseInput"][:-1]
+        app.state["courseInput"] = ""
+        app.state["groupInput"] = ""
+    elif key =="enter" and len(app.state["courseInput"]) == 5:
+        addCourseHelper(app)
+
+def addCourseHelper(app):
+    try:
+        groupID = app.state["groupInput"] if app.state["groupInput"] != "" else "Required"
+        addCourse(app,groupID,app.state["courseInput"])
+    except Exception as e:
+        app.state["courseInputError"] = e
+    app.state["courseInput"] = ""
+    app.state["groupInput"] = ""
+
+def addCourse(app:any, groupID: str, courseID: int):
+    if (df_filtered := app.course_df[app.course_df["Course"] == courseID]).empty:
+        raise ValueError("Course does not exist")
+    courseIndex = df_filtered.index[0]
+    course = app.course_df.iloc[courseIndex]
+    courseInfo = dict()
+    courseInfo["courseID"] = courseID
+    courseInfo["title"] = course["Title"]
+    courseInfo["units"] = float(course["Units"])
+    courseInfo["lectures"] = []
+    courseInfo["sections"] = []
+
+    courseIndex += 1 #nextLine
+    if pd.isnull(courseInfo["units"]):
+        course = app.course_df.iloc[courseIndex]
+        courseInfo["units"] = float(course["Units"])
+
+    while pd.isnull((courseSection := app.course_df.iloc[courseIndex])["Course"]) and courseIndex < len(app.course_df): #get all times for course
+        newSection = Section(courseSection["Lec/Sec"],courseSection["Days"],courseSection["Begin"],courseSection["End"],courseSection["Bldg/Room"],courseSection["Location"],courseSection["Instructor(s)"])		
+        courseIndex += 1
+        while pd.isnull((courseSection := app.course_df.iloc[courseIndex])["Lec/Sec"]) and courseIndex < len(app.course_df): #multiple days/times/locations per section
+            if pd.isnull(app.course_df.iloc[courseIndex]["Days"]):
+                break
+            newSection.addDays(courseSection["Days"],courseSection["Begin"],courseSection["End"],courseSection["Bldg/Room"],courseSection["Location"],courseSection["Instructor(s)"])
+            courseIndex += 1
+        if "lec" in newSection.section.lower():
+            courseInfo["lectures"] += [newSection]
+        else:
+            courseInfo["sections"] += [newSection]
+
+    newCourse = Course(**courseInfo)
+    if groupID in app.courseGroup:
+        app.courseGroup[groupID] += [newCourse]
+    else:
+        app.courseGroup[groupID] = [newCourse]
+
+    if sum([len(app.courseGroup[groupID]) for groupID in app.courseGroup]) >= 4:
+        # generateSchedules(app)
+        pass
+
+def generateSchedules(app: any):
+    courseGroupList = [app.courseGroup[id] for id in app.courseGroup if id != "Required"]
+    requiredCourses = app.courseGroup["Required"] if "Required" in app.courseGroup else []
+    for courseCombos in generateCourseCombos(courseGroupList):
+        print(requiredCourses + courseCombos)
+        generateSchedulesHelper(requiredCourses + courseCombos)
+
+
+def generateCourseCombos(courseGroups: list[list[Course]]):
+    if len(courseGroups) == 0: 
+        return [[]]
+    else:
+        rest = generateCourseCombos(courseGroups[1:])
+        return [[course] + r for r in rest for course in courseGroups[0]]
+
+def generateSchedulesHelper():
+    pass
 
 
 def getRandomColor() -> tuple[int,int,int]:
