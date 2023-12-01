@@ -24,36 +24,28 @@ def onAppStart(app: any):
     # should be loaded/stored
     #------------- APP STORAGE --------------
     app.schedules = []
-    # app.courseGroups = {}
     app.courseGroup = dict()# Key: list[Course]
-        # "test": CourseGroup({"Required":{Course('15112','Fundamentals of Programming and Computer Science',['Mike'],48)}})
     #-----------------------------------------
 
     # ---------- APP VIEW STATE --------------
     app.state = dict()
-    app.state["selectedMenu"] = "builder" 
+    app.state["selectedMenu"] = "schedules" 
     # app.state["selectedCourseGroup"] = None
     app.state["activeButtons"] = []
     app.state["courseInput"] = ""
     app.state["groupInput"] = ""
     app.state["courseInputError"] = ""
     app.state["selectedScheduleIndex"] = 0
+    app.state["schedulePage"] = 0
     #-----------------------------------------
-    addCourse(app, "Required",'15122')
-    addCourse(app, "Required",'21122')
-    addCourse(app, "Required",'15151')
-    # addCourse(app, "Required",'85211')
-    # addCourse(app, "Required",'07180')
-
-
-    addCourse(app, "Humanities",'80330')
-    addCourse(app, "Humanities",'85211')
-    addCourse(app, "Humanities",'85241')
-
-    addCourse(app, "Business",'73102')
-
+    with open('./data/courses.txt', 'r') as file:
+        for line in file:
+            courses = line.split(':')
+            group = courses[0].strip()
+            course_ids = courses[1].split(',')
+            for course_id in course_ids:
+                addCourse(app, group, course_id.strip(),init=True)
     generateSchedules(app)
-    # exit()
     
 
 class Period():
@@ -83,14 +75,16 @@ class Day():
         self.location = location
         self.instructors = instructors
     def __eq__(self,other):
-        return isinstance(other,type(self)) and ((self.weekday,self.period,self.bld_room,self.location,self.instructors)==(other.weekday,other.period,other.bld_room,other.location,other.instructors))
+        return isinstance(other,type(self)) and ((self.weekday,self.period,self.location,self.instructors)==(other.weekday,other.period,other.location,other.instructors))
     def __hash__(self):#https://docs.python.org/3.5/reference/datamodel.html#object.__hash__
-        return hash((self.weekday,self.period,self.bld_room,self.location,self.instructors))
+        return hash((self.weekday,self.period,self.location,self.instructors))
     def __copy__(self): #https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
         cls = self.__class__
         result = cls.__new__(cls)
         result.__dict__.update(self.__dict__)
         return result
+    def __repr__(self):
+        return f"{self.weekday}, {self.location}, {self.instructors}"
 
     def __deepcopy__(self, memo): #https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
         cls = self.__class__
@@ -235,7 +229,9 @@ class NavBar():
         self.bg_color = rgb(245,246,248)
         self.builderButton =  Button(lambda: app.state.update({"selectedMenu":"builder"}) ,30,25,self.width-60,40,fill=rgb(45,45,45))
         self.schedulesButton =  Button(lambda: app.state.update({"selectedMenu":"schedules"}) ,30,70,self.width-60,40,fill=rgb(45,45,45))
-        # self.addButton = Button(lambda: addCourseHelper(self.app),)
+        self.clearButton = Button(lambda: clearCourses(self.app),30,app.height - 80,self.width-60,30,fill=rgb(145,145,145))
+        self.saveButton = Button(lambda: saveCourses(self.app),30,app.height - 40,self.width-60,30,fill=rgb(145,145,145))
+
     def draw(self):
         drawRect(0,0,self.width,self.app.height,fill=self.bg_color)
 
@@ -247,6 +243,8 @@ class NavBar():
         drawLabel("Schedules View",self.width//2,90,fill="White",size=self.app.primaryFontSize)
         self.app.state["activeButtons"] += [self.schedulesButton]
 
+
+
         match self.app.state["selectedMenu"]:
             case "builder":
                 self.drawScheduleSection()
@@ -256,6 +254,16 @@ class NavBar():
     def drawNavCourses(self):
 
         yOff = self.coursesOffset
+
+
+        self.clearButton.draw()
+        drawLabel("Clear Courses",self.width//2,self.app.height - 65,fill="White",size=self.app.primaryFontSize)
+        self.app.state["activeButtons"] += [self.clearButton]
+
+        self.saveButton.draw()
+        drawLabel("Save Courses",self.width//2,self.app.height - 25,fill="White",size=self.app.primaryFontSize)
+        self.app.state["activeButtons"] += [self.saveButton]
+
 
         drawLabel("Add Courses",10,yOff,size=self.app.primaryFontSize,align="left")
         yOff+= self.app.primaryFontSize 
@@ -299,12 +307,9 @@ class NavBar():
     def drawScheduleSection(self):
         yOff = self.coursesOffset
         viewIndex = (self.app.state["selectedScheduleIndex"]+1)
-        drawLabel(f"Viewing Schedule {viewIndex} of {len(self.app.schedules)}",self.width//2,yOff,size=16)
+        label = f"Viewing Schedule {viewIndex} of {len(self.app.schedules)}" if len(self.app.schedules) != 0 else "Go Add Some Courses!"
+        drawLabel(label,self.width//2,yOff,size=16)
         yOff+= 18
-    
-
-
-
     
 class Button():
     def __init__(self,onclick: Callable,*args,**kwargs):
@@ -372,7 +377,6 @@ class CourseView():
                     drawLabel(section,x+width//2,y+10,fill="White",size=self.app.primaryFontSize)
                     drawLine(x,y+20,x+width,y+20,fill = "White",opacity=30,lineWidth=3)
 
-
 class ScheduleView():
     def __init__(self, app:any, xOffset: int):
         self.app = app
@@ -394,9 +398,16 @@ class ScheduleView():
         self.drawSchedules()
     
     def drawSchedules(self):
+        rowCount = (self.app.height - self.yOffset)//self.rowHeight
+
         yOff = self.yOffset
         viewWidth = self.app.width - self.xOffset
-        for i, schedule in enumerate(self.app.schedules):
+        for i in range(self.app.state["schedulePage"]*rowCount,(self.app.state["schedulePage"]+1)*rowCount):
+            schedule = self.app.schedules[i:i+1]
+            if schedule == []:
+                break
+            schedule = schedule[0]#.updateInfo()
+            schedule.updateInfo()
             drawLine(self.xOffset,yOff,self.xOffset+viewWidth,yOff,lineWidth=.5,fill=rgb(175,175,175))
             drawLabel(i,self.xOffset + 25,yOff + self.rowHeight//2,size=14)
             drawLabel(", ".join(sorted(schedule.getCourseIDs())),self.xOffset + 200,yOff + self.rowHeight//2,size=14,bold=True)
@@ -423,20 +434,33 @@ def onMousePress(app, mouseX: int, mouseY:int):
 
 def onKeyPress(app,key):
     app.state["courseInputError"] = ""
-    if key.isnumeric() and app.state["selectedMenu"] =="builder" and len(app.state["courseInput"]) < 5:
+    if key.isnumeric() and app.state["selectedMenu"] =="schedules" and len(app.state["courseInput"]) < 5:
         app.state["courseInput"] += key
-    elif key.isalpha() and len(key) == 1 and app.state["selectedMenu"] =="builder" and len(app.state["groupInput"]) < 20:
+    elif key.isalpha() and len(key) == 1 and app.state["selectedMenu"] =="schedules" and len(app.state["groupInput"]) < 20:
         app.state["groupInput"] += key
-    elif key =="backspace":
-        # app.state["courseInput"] = app.state["courseInput"][:-1]
+    elif key =="backspace"  and app.state["selectedMenu"] =="schedules":
         app.state["courseInput"] = ""
         app.state["groupInput"] = ""
-    elif key =="enter" and len(app.state["courseInput"]) == 5:
+    elif key =="enter" and len(app.state["courseInput"]) == 5 and app.state["selectedMenu"] =="schedules":
         addCourseHelper(app)
-    elif key == "left" and app.state["selectedScheduleIndex"] > 0:
+    elif key == "left" and app.state["selectedScheduleIndex"] > 0 and app.state["selectedMenu"] =="builder":
         app.state["selectedScheduleIndex"] -= 1
-    elif key == "right" and app.state["selectedScheduleIndex"] < (len(app.schedules) -1):
+    elif key == "right" and app.state["selectedScheduleIndex"] < (len(app.schedules) -1) and app.state["selectedMenu"] =="builder":
         app.state["selectedScheduleIndex"] += 1
+    elif key == "left" and app.state["schedulePage"] > 0 and app.state["selectedMenu"] =="schedules":
+        app.state["schedulePage"] -= 1
+    elif key == "right" and app.state["schedulePage"] < ((app.height - 50)//40 -1) and app.state["selectedMenu"] == "schedules":
+        app.state["schedulePage"] += 1
+
+def clearCourses(app):
+    app.courseGroup = dict()
+    app.schedules = []
+
+def saveCourses(app):
+    with open('./data/courses.txt', 'w') as file:
+        for group, courseIDs in app.courseGroup.items():
+            courseIDs = ', '.join(map(str, courseIDs))
+            file.write(f"{group}: {courseIDs}\n")
 
 def addCourseHelper(app):
     try:
@@ -447,7 +471,7 @@ def addCourseHelper(app):
     app.state["courseInput"] = ""
     app.state["groupInput"] = ""
 
-def addCourse(app:any, groupID: str, courseID: int):
+def addCourse(app:any, groupID: str, courseID: int, init: Optional[bool]=False):
     if (df_filtered := app.course_df[app.course_df["Course"] == courseID]).empty:
         raise ValueError("Course does not exist")
     courseIndex = df_filtered.index[0]
@@ -480,7 +504,6 @@ def addCourse(app:any, groupID: str, courseID: int):
         else:
             if (allSections == [] or allSections[-1].days != newSection.days or allSections[-1].courseID != newSection.courseID):
                 allSections += [newSection]
-    
     for i, lecture in enumerate(allLectures):
         chunkSize = len(allSections)//len(allLectures) #1 if len(allSections) == 0 else len(allSections)//len(allLectures)
         courseInfo["lectures"] += [Lecture(lecture,allSections[i*chunkSize:(i+1)*chunkSize])]
@@ -493,10 +516,8 @@ def addCourse(app:any, groupID: str, courseID: int):
         app.courseGroup[groupID] += [newCourse]
     else:
         app.courseGroup[groupID] = [newCourse]
-
-    if sum([len(app.courseGroup[groupID]) for groupID in app.courseGroup]) >= 4:
-        # generateSchedules(app)
-        pass
+    if sum([len(app.courseGroup[groupID]) for groupID in app.courseGroup]) >= 4 and not init:
+        generateSchedules(app)
 
 def generateSchedules(app: any):
     courseGroupList = [app.courseGroup[id] for id in app.courseGroup if id != "Required"]
@@ -506,7 +527,7 @@ def generateSchedules(app: any):
     for courseCombos in createCombos(courseGroupList):
         allSchedules += generateSchedulesHelper(requiredCourses + courseCombos,Schedule(app))
     allSchedules = [schedule for schedule in allSchedules if schedule != None]
-    print(allSchedules)
+    # print(allSchedules)
     # for schedule in allSchedules:
     #     schedule.updateInfo()
     app.state["selectedScheduleIndex"] = 0
