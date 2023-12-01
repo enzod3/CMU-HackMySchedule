@@ -31,12 +31,13 @@ def onAppStart(app: any):
 
     # ---------- APP VIEW STATE --------------
     app.state = dict()
-    app.state["selectedMenu"] = "schedules" 
+    app.state["selectedMenu"] = "builder" 
     # app.state["selectedCourseGroup"] = None
     app.state["activeButtons"] = []
     app.state["courseInput"] = ""
     app.state["groupInput"] = ""
     app.state["courseInputError"] = ""
+    app.state["selectedScheduleIndex"] = 0
     #-----------------------------------------
     addCourse(app, "Required",'15122')
     addCourse(app, "Required",'21122')
@@ -52,7 +53,7 @@ def onAppStart(app: any):
     addCourse(app, "Business",'73102')
 
     generateSchedules(app)
-
+    # exit()
     
 
 class Period():
@@ -64,7 +65,7 @@ class Period():
         if "PM" in timeString:
             minutes += 60 * 12
         (hrs, mins) = timeString.split(':')
-        minutes += int(hrs) *60 + int(mins[:2])
+        minutes += (int(hrs)%12) *60 + int(mins[:2])
         return minutes
     def overlaps(self, other):
         return (other.timeRange[0] <= self.timeRange[1] and other.timeRange[0] >= self.timeRange[0] or
@@ -85,19 +86,32 @@ class Day():
         return isinstance(other,type(self)) and ((self.weekday,self.period,self.bld_room,self.location,self.instructors)==(other.weekday,other.period,other.bld_room,other.location,other.instructors))
     def __hash__(self):#https://docs.python.org/3.5/reference/datamodel.html#object.__hash__
         return hash((self.weekday,self.period,self.bld_room,self.location,self.instructors))
+    def __copy__(self): #https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
+        cls = self.__class__
+        result = cls.__new__(cls)
+        result.__dict__.update(self.__dict__)
+        return result
 
+    def __deepcopy__(self, memo): #https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, deepcopy(v, memo))
+        return result
 
 class Section(): #sections/recitations
-    def __init__(self,courseID: str, title:str,units:float, section:str,days:str,begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
+    def __init__(self,courseID: str, title:str,units:float, color, section:str,days:str,begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
         self.courseID = courseID
         self.title = title
         self.units = units
+        self.color = color
         self.section = section
         self.days = set()
         self.addDays(days,begin,end,bld_room,location,instructors)
     def __repr__(self):
-        dayString = "".join([day.weekday for day in self.days])
-        return f"{self.courseID} {self.section} {dayString}"
+        # dayString = "".join([day.weekday for day in self.days])
+        return f"{self.courseID} {self.section}"
     def addDays(self, days:str, begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
         for day in days:    
             self.days.add(Day(day,begin,end,bld_room,location,instructors))
@@ -114,24 +128,30 @@ class Section(): #sections/recitations
         return isinstance(other,type(self)) and ((self.courseID,self.title,self.units,self.section,self.days)==(other.courseID,other.title,other.units,other.section,other.days))
     def __hash__(self): #https://docs.python.org/3.5/reference/datamodel.html#object.__hash__
         return hash((self.courseID,self.title,self.units,self.section,frozenset(self.days))) #https://docs.python.org/3/library/stdtypes.html#set-types-set-frozenset
-
-
+    def __copy__(self): #https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
+        cls = self.__class__
+        result = cls.__new__(cls)
+        result.__dict__.update(self.__dict__)
+        return result
+    def __deepcopy__(self, memo): #https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
+        cls = self.__class__
+        result = cls.__new__(cls)
+        result.__dict__.update(self.__dict__)
+        return result
+    
 
 class Lecture(): #Every Class has a lecture taught by main professor --> some contain sections
     def __init__(self,lecture: Section, sections: Optional[list[Section]] = []):
         self.lecture = lecture
         self.sections = set(sections)
 
-
-
-
 class Course():
-    def __init__(self,courseID: str, title:str,units:float,lectures: list[Lecture]):
+    def __init__(self,courseID: str, title:str,units:float,lectures: list[Lecture],color):
         self.courseID = courseID
         self.title = title
         self.units = units
         self.lectures = lectures
-        self.color = rgb(*getRandomColor())
+        self.color = color
     def __repr__(self):
         return f"{self.courseID}"
     def __eq__(self,other):
@@ -186,6 +206,22 @@ class Schedule():
         return self.averageBreak
     def getOverall(self) -> float:
         pass
+    def __copy__(self): #https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
+        cls = self.__class__
+        result = cls.__new__(cls)
+        result.__dict__.update(self.__dict__)
+        return result
+
+    def __deepcopy__(self, memo): #https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k == 'app':
+                setattr(result, k, self.app)
+            else:
+                setattr(result, k, deepcopy(v, memo))
+        return result
 
 class CourseGroup():
     def __init__(self,courseGroups: dict[str, set[Course]] = dict()):
@@ -213,10 +249,9 @@ class NavBar():
 
         match self.app.state["selectedMenu"]:
             case "builder":
-                pass
+                self.drawScheduleSection()
             case "schedules":
                 self.drawNavCourses()
-
 
     def drawNavCourses(self):
 
@@ -260,6 +295,16 @@ class NavBar():
         drawLabel(course.title[:40],15,yOff+10,size=self.app.secondaryFontSize,align="left",fill="White")
         drawLabel(course.courseID,15,yOff+25,size=self.app.secondaryFontSize,align="left",fill="White")
         return 40
+
+    def drawScheduleSection(self):
+        yOff = self.coursesOffset
+        viewIndex = (self.app.state["selectedScheduleIndex"]+1)
+        drawLabel(f"Viewing Schedule {viewIndex} of {len(self.app.schedules)}",self.width//2,yOff,size=16)
+        yOff+= 18
+    
+
+
+
     
 class Button():
     def __init__(self,onclick: Callable,*args,**kwargs):
@@ -279,24 +324,54 @@ class CourseView():
         self.coursesOffset = coursesOffset
         self.times = ["8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM"]
         self.days = ["Monday","Tuesday","Wednesday","Thursday","Friday"]
+        self.dayIndexs = {
+            "M":0,
+            "T":1,
+            "W":2,
+            "R":3,
+            "F":4,
+        }
         self.timeWidth = 80
+        self.yOffset = 35
     def draw(self):
+        
         self.drawGrid()
-        self.drawGridCourses()
+        self.drawSectionsOnSchedule()
 
     def drawGrid(self):
         xOff = self.coursesOffset + self.timeWidth
         viewWidth = self.app.width - xOff
         for i, time in enumerate(self.times):
-            drawLabel(time,xOff-10,35+i*((self.app.height-40)//len(self.times)),align="right",size=self.app.secondaryFontSize)
-            drawLine(xOff,35+i*((self.app.height-40)//len(self.times)),self.app.width,35+i*((self.app.height-40)//len(self.times)),fill=rgb(235,236,238),lineWidth=3)
-            drawLine(xOff,35+i*((self.app.height-40)//len(self.times))+(self.app.height-40)//(len(self.times)*2),self.app.width,35+i*((self.app.height-40)//len(self.times))+(self.app.height-40)//(len(self.times)*2),fill=rgb(235,236,238),lineWidth=1)
+            drawLabel(time,xOff-10,self.yOffset+i*((self.app.height-40)//len(self.times)),align="right",size=self.app.secondaryFontSize)
+            drawLine(xOff,self.yOffset+i*((self.app.height-40)//len(self.times)),self.app.width,35+i*((self.app.height-40)//len(self.times)),fill=rgb(235,236,238),lineWidth=3)
+            drawLine(xOff,self.yOffset+i*((self.app.height-40)//len(self.times))+(self.app.height-40)//(len(self.times)*2),self.app.width,35+i*((self.app.height-40)//len(self.times))+(self.app.height-40)//(len(self.times)*2),fill=rgb(235,236,238),lineWidth=1)
         for i,day in enumerate(self.days):
             drawLabel(day,xOff+i*viewWidth//len(self.days)+viewWidth//(len(self.days)*2), 20, size=self.app.primaryFontSize)
             drawLine(xOff+i*viewWidth//len(self.days),0,xOff + i*viewWidth//len(self.days),self.app.height,fill=rgb(235,236,238),lineWidth=3)
 
-    def drawGridCourses(self):
-        pass
+    def drawSectionsOnSchedule(self):
+        if self.app.schedules:
+            xOff = self.coursesOffset + self.timeWidth
+            viewHeight = self.app.height - self.yOffset
+            viewWidth = self.app.width - xOff
+            viewPeriod = Period("",self.times[0],self.times[-1]) 
+            minsBegin = viewPeriod.timeRange[0]
+            minsEnd = viewPeriod.timeRange[1] + 60  #add 60 because an hour extra is showed on schedule
+            minsLength = minsEnd - minsBegin
+            # drawRect(xOff,self.yOffset,viewWidth//5,viewHeight-2)
+            self.app.schedules[self.app.state["selectedScheduleIndex"]].updateInfo()
+            for section in self.app.schedules[self.app.state["selectedScheduleIndex"]].sections:
+                for day in section.days:
+                    beginP = (day.period.timeRange[0] - minsBegin)/minsLength 
+                    endP = (day.period.timeRange[1] - minsBegin)/minsLength 
+                    x = self.dayIndexs[day.weekday]*viewWidth//5 +3 + xOff
+                    y = viewHeight * beginP + self.yOffset
+                    width = viewWidth//5 - 6
+                    height = viewHeight * (endP-beginP)
+                    drawRect(x,y,width,height,fill=section.color)
+                    drawLabel(section,x+width//2,y+10,fill="White",size=self.app.primaryFontSize)
+                    drawLine(x,y+20,x+width,y+20,fill = "White",opacity=30,lineWidth=3)
+
 
 class ScheduleView():
     def __init__(self, app:any, xOffset: int):
@@ -332,7 +407,7 @@ class ScheduleView():
             yOff += self.rowHeight
         if len(self.app.schedules) > 0: #border rect
             drawLine(self.xOffset,yOff,self.xOffset+viewWidth,yOff,lineWidth=.5,fill=rgb(175,175,175))
-        
+    
 def redrawAll(app: any):
     app.state["activeButtons"] = []
     app.navbar.draw()
@@ -358,6 +433,10 @@ def onKeyPress(app,key):
         app.state["groupInput"] = ""
     elif key =="enter" and len(app.state["courseInput"]) == 5:
         addCourseHelper(app)
+    elif key == "left" and app.state["selectedScheduleIndex"] > 0:
+        app.state["selectedScheduleIndex"] -= 1
+    elif key == "right" and app.state["selectedScheduleIndex"] < (len(app.schedules) -1):
+        app.state["selectedScheduleIndex"] += 1
 
 def addCourseHelper(app):
     try:
@@ -378,6 +457,7 @@ def addCourse(app:any, groupID: str, courseID: int):
     courseInfo["title"] = course["Title"]
     courseInfo["units"] = float(course["Units"])
     courseInfo["lectures"] = []
+    courseInfo["color"] = rgb(*getRandomColor())
 
     courseIndex += 1 #nextLine
     if pd.isnull(courseInfo["units"]):
@@ -387,7 +467,7 @@ def addCourse(app:any, groupID: str, courseID: int):
     allLectures = []
     allSections = []
     while pd.isnull((courseSection := app.course_df.iloc[courseIndex])["Course"]) and courseIndex < len(app.course_df): #get all times for course
-        newSection = Section(courseInfo["courseID"],courseInfo["title"],courseInfo["units"],courseSection["Lec/Sec"],courseSection["Days"],courseSection["Begin"],courseSection["End"],courseSection["Bldg/Room"],courseSection["Location"],courseSection["Instructor(s)"])	
+        newSection = Section(courseInfo["courseID"],courseInfo["title"],courseInfo["units"],courseInfo["color"],courseSection["Lec/Sec"],courseSection["Days"],courseSection["Begin"],courseSection["End"],courseSection["Bldg/Room"],courseSection["Location"],courseSection["Instructor(s)"])	
         
         courseIndex += 1
         while pd.isnull((courseSection := app.course_df.iloc[courseIndex])["Lec/Sec"]) and courseIndex < len(app.course_df): #multiple days/times/locations per section
@@ -398,7 +478,8 @@ def addCourse(app:any, groupID: str, courseID: int):
         if "lec" in newSection.section.lower():
             allLectures += [newSection]
         else:
-            allSections += [newSection]
+            if (allSections == [] or allSections[-1].days != newSection.days or allSections[-1].courseID != newSection.courseID):
+                allSections += [newSection]
     
     for i, lecture in enumerate(allLectures):
         chunkSize = len(allSections)//len(allLectures) #1 if len(allSections) == 0 else len(allSections)//len(allLectures)
@@ -406,11 +487,7 @@ def addCourse(app:any, groupID: str, courseID: int):
     if courseInfo["lectures"] == []:
         for section in allSections:
             courseInfo["lectures"] += [Lecture(section)]
-    # if courseInfo["courseID"] == "85211":
-    #     print(courseInfo["lectures"])
 
-    # courseInfo["lectures"] = [None] if len(courseInfo["lectures"]) == 0 else courseInfo["lectures"]
-    # courseInfo["sections"] = [None] if len(courseInfo["sections"]) == 0 else courseInfo["sections"]
     newCourse = Course(**courseInfo)
     if groupID in app.courseGroup:
         app.courseGroup[groupID] += [newCourse]
@@ -425,13 +502,14 @@ def generateSchedules(app: any):
     courseGroupList = [app.courseGroup[id] for id in app.courseGroup if id != "Required"]
     requiredCourses = app.courseGroup["Required"] if "Required" in app.courseGroup else []
     allSchedules = []
-    # print(requiredCourses[4].getSectionLectureCombos())
-
     
     for courseCombos in createCombos(courseGroupList):
-        allSchedules += [generateSchedulesHelper(requiredCourses + courseCombos,Schedule(app))]
-    for schedule in allSchedules:
-        schedule.updateInfo()
+        allSchedules += generateSchedulesHelper(requiredCourses + courseCombos,Schedule(app))
+    allSchedules = [schedule for schedule in allSchedules if schedule != None]
+    print(allSchedules)
+    # for schedule in allSchedules:
+    #     schedule.updateInfo()
+    app.state["selectedScheduleIndex"] = 0
     app.schedules = allSchedules
 
 def createCombos(groups: list[list[any]]):
@@ -443,27 +521,25 @@ def createCombos(groups: list[list[any]]):
 
 def generateSchedulesHelper(courses: list[Course], schedule: Schedule):
     if courses == []:
-        return schedule
+        return [deepcopy(schedule)]  
     else:
+        solutions = [] 
         for i in range(len(courses)):
             for (sec,lec) in courses[i].getSectionLectureCombos():
                 if (sec == None or schedule.canAdd(sec)) and (lec == None or schedule.canAdd(lec)):
-                    oldCourses = copy(courses)
+                    oldCourses = copy(courses)  # Deep copy of courses
                     courses.pop(i)
                     schedule.add(sec)
                     schedule.add(lec)
-                    solution = generateSchedulesHelper(courses,schedule)
-                    if solution != None:
-                        return solution
+                    solutions += generateSchedulesHelper(courses,schedule) 
                     schedule.remove(sec)
-                    schedule.remove(lec)
+                    schedule.remove(lec)    
                     courses = oldCourses
-        return None
+        return solutions 
 
 def getRandomColor() -> tuple[int,int,int]:
     rgbDecimal = hsv_to_rgb(random.random(),0.7,0.65)
     return map(lambda x: int(x*255),rgbDecimal)
-
 
 def calculateMedianBreak(sections: list[Section]):
     allBreaks = []
@@ -475,10 +551,8 @@ def calculateMedianBreak(sections: list[Section]):
                     periodList += [day.period]
         periodList = sorted(periodList,key=lambda period: period.timeRange[0]) #https://docs.python.org/3/howto/sorting.html#key-functions
         allBreaks += [periodList[i+1].timeRange[0] - periodList[i].timeRange[1] for i in range(len(periodList)-1)]
-    print(allBreaks)
     mindex = len(allBreaks)//2
     return (allBreaks[mindex]+allBreaks[-mindex-1])/2
-
 
 def getCourseReview(app: any, sections: set[Section]) ->  set[float,float]: 
     workloads = []
@@ -531,3 +605,8 @@ if __name__ == "__main__":
 
 
 
+
+
+
+#getNextSection / eliminate the section u just added in solution and check for more solutions with that section because
+#you already got them all
