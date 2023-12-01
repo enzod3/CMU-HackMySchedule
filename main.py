@@ -1,9 +1,9 @@
 import pandas as pd
 from cmu_graphics import *
-from typing import Set,Dict,Callable
+from typing import Optional,Callable
 import random
 from colorsys import hsv_to_rgb
-
+from copy import copy, deepcopy
 
 
 def onAppStart(app: any):
@@ -23,7 +23,7 @@ def onAppStart(app: any):
     app.scheduleview = ScheduleView(app,300)
     # should be loaded/stored
     #------------- APP STORAGE --------------
-    app.schedules = dict()
+    app.schedules = []
     # app.courseGroups = {}
     app.courseGroup = dict()# Key: list[Course]
         # "test": CourseGroup({"Required":{Course('15112','Fundamentals of Programming and Computer Science',['Mike'],48)}})
@@ -31,7 +31,7 @@ def onAppStart(app: any):
 
     # ---------- APP VIEW STATE --------------
     app.state = dict()
-    app.state["selectedMenu"] = "builder" 
+    app.state["selectedMenu"] = "schedules" 
     # app.state["selectedCourseGroup"] = None
     app.state["activeButtons"] = []
     app.state["courseInput"] = ""
@@ -41,6 +41,9 @@ def onAppStart(app: any):
     addCourse(app, "Required",'15122')
     addCourse(app, "Required",'21122')
     addCourse(app, "Required",'15151')
+    # addCourse(app, "Required",'85211')
+    # addCourse(app, "Required",'07180')
+
 
     addCourse(app, "Humanities",'80330')
     addCourse(app, "Humanities",'85211')
@@ -49,13 +52,13 @@ def onAppStart(app: any):
     addCourse(app, "Business",'73102')
 
     generateSchedules(app)
-    exit()
+    # exit()
     
 
 class Period():
     def __init__(self, day: str, begin: str,end: str):
         self.day = day
-        self.time = (self.convertToMinutes(begin),self.convertToMinutes(end)) #(begin mins, end mins)
+        self.timeRange = (self.convertToMinutes(begin),self.convertToMinutes(end)) #(begin mins, end mins)
     def convertToMinutes(self,timeString):
         minutes = 0
         if "PM" in timeString:
@@ -63,32 +66,69 @@ class Period():
         (hrs, mins) = timeString.split(':')
         minutes += int(hrs) *60 + int(mins[:2])
         return minutes
+    def overlaps(self, other):
+        return (other.timeRange[0] <= self.timeRange[1] and other.timeRange[0] >= self.timeRange[0] or
+                other.timeRange[1] >= self.timeRange[0] and other.timeRange[1] <= self.timeRange[1])
+    def __eq__(self, other):
+        return isinstance(other,type(self)) and self.day == other.day and self.timeRange == other.timeRange
+    def __hash__(self): #https://docs.python.org/3.5/reference/datamodel.html#object.__hash__
+        return hash((self.day, self.timeRange))
 
 class Day():
     def __init__(self,day:str,begin:str,end:str,bld_room:str,location:str,instructors: list[str]):
-        self.day = day
+        self.weekday = day
         self.period = Period(day,begin,end)
         self.bld_room = bld_room
         self.location = location
         self.instructors = instructors
+    def __eq__(self,other):
+        return isinstance(other,type(self)) and ((self.weekday,self.period,self.bld_room,self.location,self.instructors)==(other.weekday,other.period,other.bld_room,other.location,other.instructors))
+    def __hash__(self):#https://docs.python.org/3.5/reference/datamodel.html#object.__hash__
+        return hash((self.weekday,self.period,self.bld_room,self.location,self.instructors))
 
-class Section(): #lectures/sections
-    def __init__(self,section:str,days:str,begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
+
+class Section(): #sections/recitations
+    def __init__(self,courseID: str, title:str,units:float, section:str,days:str,begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
+        self.courseID = courseID
+        self.title = title
+        self.units = units
         self.section = section
         self.days = set()
         self.addDays(days,begin,end,bld_room,location,instructors)
-
+    def __repr__(self):
+        dayString = "".join([day.weekday for day in self.days])
+        return f"{self.courseID} {self.section} {dayString}"
     def addDays(self, days:str, begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
         for day in days:    
             self.days.add(Day(day,begin,end,bld_room,location,instructors))
+    def conflicts(self,other):
+        for day1 in self.days:
+            for day2 in other.days:
+                if day1.weekday == day2.weekday:
+                    if day1.period.overlaps(day2.period):
+                        return True
+        return False
+    def __eq__(self,other):
+        return isinstance(other,type(self)) and ((self.courseID,self.title,self.units,self.section,self.days)==(other.courseID,other.title,other.units,other.section,other.days))
+    def __hash__(self): #https://docs.python.org/3.5/reference/datamodel.html#object.__hash__
+        return hash((self.courseID,self.title,self.units,self.section,frozenset(self.days))) #https://docs.python.org/3/library/stdtypes.html#set-types-set-frozenset
+
+
+
+class Lecture(): #Every Class has a lecture taught by main professor --> some contain sections
+    def __init__(self,lecture: Section, sections: Optional[list[Section]] = []):
+        self.lecture = lecture
+        self.sections = set(sections)
+
+
+
 
 class Course():
-    def __init__(self,courseID: int, title:str,units:float,lectures: Set[Section],sections: Set[Section]):
+    def __init__(self,courseID: str, title:str,units:float,lectures: list[Lecture]):
         self.courseID = courseID
         self.title = title
         self.units = units
         self.lectures = lectures
-        self.sections = sections
         self.color = rgb(*getRandomColor())
     def __repr__(self):
         return f"{self.courseID}"
@@ -96,22 +136,50 @@ class Course():
         return isinstance(other,type(self)) and ((self.courseID,self.title,self.units,self.lectures,self.sections)==(other.courseID,other.title,other.units,other.lectures,other.sections))
     def __hash__(self): #https://docs.python.org/3.5/reference/datamodel.html#object.__hash__
         return hash((self.courseID,self.title,self.units,self.lectures,self.sections))
-
+    def getSectionLectureCombos(self):
+        combos = []
+        for lecture in self.lectures:
+            sections = [None] if len(lecture.sections) == 0 else lecture.sections
+            combos += createCombos([[lecture.lecture],sections])
+        return combos
+        
 # Rank, CourseCodes, Workload, Instructor Score, Average Break(Median or Mean),Overall
 class Schedule():
-    def __init__(self,courses: list[Course]):
+    def __init__(self,sections: Optional[list[Section]] = []):
         self.name = None
-        self.courses = courses
-        # self.totalUnits = self.getTotalUnits()
-    def addCourse(self,course):
-        self.courses += [course]
+        self.sections = set(sections)
+        self.workload = None
+        self.instructorScore = None
+        self.averageBreak = None
+        self.overall = None
+    
+    def __repr__(self):
+        return f"{[s for s in self.sections]}"
+    def canAdd(self,section):
+        for s in self.sections:
+            if s.conflicts(section):
+                return False
+        return True
+    def add(self,section):
+        if isinstance(section,Section):
+            self.sections.add(section)
+    def remove(self,section):
+        if isinstance(section,Section):
+            self.sections.remove(section)
     def getScheduleCount(self):
         return len(self.courses)
-
+    def getCourseIDs(self):
+        return list({section.courseID for section in self.sections})
     def getTotalUnits(self) -> float:
-        return sum([course.units for course in self.courses])
-    def getWorkload(self) -> float:
+        return sum([u for (s,u) in {(section.courseID,section.units) for section in self.sections}])
+    
+    def updateInfo(self):
         pass
+
+    def getWorkload(self) -> float:
+        if self.workload == None:
+            self.updateInfo()
+        return self.workload
     def getInstructorScore(self) -> float:
         pass
     def getAverageBreak(self) -> float:
@@ -120,7 +188,7 @@ class Schedule():
         pass
 
 class CourseGroup():
-    def __init__(self,courseGroups: Dict[str, Set[Course]] = dict()):
+    def __init__(self,courseGroups: dict[str, set[Course]] = dict()):
         self.courseGroups = courseGroups
 
 class NavBar():
@@ -145,9 +213,9 @@ class NavBar():
 
         match self.app.state["selectedMenu"]:
             case "builder":
-                self.drawNavCourses()
-            case "schedules":
                 pass
+            case "schedules":
+                self.drawNavCourses()
 
 
     def drawNavCourses(self):
@@ -234,10 +302,36 @@ class ScheduleView():
     def __init__(self, app:any, xOffset: int):
         self.app = app
         self.xOffset = xOffset
+        self.yOffset = 50
+        self.rowHeight = 40
     
     def draw(self):
         viewWidth = self.app.width - self.xOffset
-        drawLabel("Schedules",self.xOffset + viewWidth//2,20,size=20)
+        # drawLabel("Schedules",self.xOffset + viewWidth//2 - 5,20,size=20)
+        drawLabel("ID",self.xOffset +25,30,size=18,bold=True)
+        drawLabel("Courses",self.xOffset +200,30,size=18,bold=True)
+        drawLabel("Units",self.xOffset +380,30,size=18,bold=True )
+        drawLabel("Workload",self.xOffset +480,30,size=18,bold=True )
+        drawLabel("Instructor",self.xOffset +580,15,size=18,bold=True )
+        drawLabel("Rating",self.xOffset +580,35,size=18,bold=True )
+        drawLabel("Course",self.xOffset +680,15,size=18,bold=True )
+        drawLabel("Breaks",self.xOffset +680,35,size=18,bold=True )
+        self.drawSchedules()
+    
+    def drawSchedules(self):
+        yOff = self.yOffset
+        viewWidth = self.app.width - self.xOffset
+        for i, schedule in enumerate(self.app.schedules):
+            drawLine(self.xOffset,yOff,self.xOffset+viewWidth,yOff,lineWidth=.5,fill=rgb(175,175,175))
+            drawLabel(i,self.xOffset + 25,yOff + self.rowHeight//2,size=14)
+            drawLabel(", ".join(sorted(schedule.getCourseIDs())),self.xOffset + 200,yOff + self.rowHeight//2,size=14,bold=True)
+            drawLabel(schedule.getTotalUnits(),self.xOffset +380,yOff + self.rowHeight//2,size=16,bold=True)
+            yOff += self.rowHeight
+        if len(self.app.schedules) > 0: #border rect
+            drawLine(self.xOffset,yOff,self.xOffset+viewWidth,yOff,lineWidth=.5,fill=rgb(175,175,175))
+        
+
+
 
 def redrawAll(app: any):
     app.state["activeButtons"] = []
@@ -284,15 +378,17 @@ def addCourse(app:any, groupID: str, courseID: int):
     courseInfo["title"] = course["Title"]
     courseInfo["units"] = float(course["Units"])
     courseInfo["lectures"] = []
-    courseInfo["sections"] = []
 
     courseIndex += 1 #nextLine
     if pd.isnull(courseInfo["units"]):
         course = app.course_df.iloc[courseIndex]
         courseInfo["units"] = float(course["Units"])
 
+    allLectures = []
+    allSections = []
     while pd.isnull((courseSection := app.course_df.iloc[courseIndex])["Course"]) and courseIndex < len(app.course_df): #get all times for course
-        newSection = Section(courseSection["Lec/Sec"],courseSection["Days"],courseSection["Begin"],courseSection["End"],courseSection["Bldg/Room"],courseSection["Location"],courseSection["Instructor(s)"])		
+        newSection = Section(courseInfo["courseID"],courseInfo["title"],courseInfo["units"],courseSection["Lec/Sec"],courseSection["Days"],courseSection["Begin"],courseSection["End"],courseSection["Bldg/Room"],courseSection["Location"],courseSection["Instructor(s)"])	
+        
         courseIndex += 1
         while pd.isnull((courseSection := app.course_df.iloc[courseIndex])["Lec/Sec"]) and courseIndex < len(app.course_df): #multiple days/times/locations per section
             if pd.isnull(app.course_df.iloc[courseIndex]["Days"]):
@@ -300,10 +396,21 @@ def addCourse(app:any, groupID: str, courseID: int):
             newSection.addDays(courseSection["Days"],courseSection["Begin"],courseSection["End"],courseSection["Bldg/Room"],courseSection["Location"],courseSection["Instructor(s)"])
             courseIndex += 1
         if "lec" in newSection.section.lower():
-            courseInfo["lectures"] += [newSection]
+            allLectures += [newSection]
         else:
-            courseInfo["sections"] += [newSection]
+            allSections += [newSection]
+    
+    for i, lecture in enumerate(allLectures):
+        chunkSize = len(allSections)//len(allLectures) #1 if len(allSections) == 0 else len(allSections)//len(allLectures)
+        courseInfo["lectures"] += [Lecture(lecture,allSections[i*chunkSize:(i+1)*chunkSize])]
+    if courseInfo["lectures"] == []:
+        for section in allSections:
+            courseInfo["lectures"] += [Lecture(section)]
+    # if courseInfo["courseID"] == "85211":
+    #     print(courseInfo["lectures"])
 
+    # courseInfo["lectures"] = [None] if len(courseInfo["lectures"]) == 0 else courseInfo["lectures"]
+    # courseInfo["sections"] = [None] if len(courseInfo["sections"]) == 0 else courseInfo["sections"]
     newCourse = Course(**courseInfo)
     if groupID in app.courseGroup:
         app.courseGroup[groupID] += [newCourse]
@@ -317,31 +424,66 @@ def addCourse(app:any, groupID: str, courseID: int):
 def generateSchedules(app: any):
     courseGroupList = [app.courseGroup[id] for id in app.courseGroup if id != "Required"]
     requiredCourses = app.courseGroup["Required"] if "Required" in app.courseGroup else []
-    for courseCombos in generateCourseCombos(courseGroupList):
-        print(requiredCourses + courseCombos)
-        generateSchedulesHelper(requiredCourses + courseCombos)
+    allSchedules = []
+    # print(requiredCourses[4].getSectionLectureCombos())
 
+    
+    for courseCombos in createCombos(courseGroupList):
+        allSchedules += [generateSchedulesHelper(requiredCourses + courseCombos,Schedule())]
+    app.schedules = allSchedules
 
-def generateCourseCombos(courseGroups: list[list[Course]]):
-    if len(courseGroups) == 0: 
+def createCombos(groups: list[list[any]]):
+    if len(groups) == 0: 
         return [[]]
     else:
-        rest = generateCourseCombos(courseGroups[1:])
-        return [[course] + r for r in rest for course in courseGroups[0]]
+        rest = createCombos(groups[1:])
+        return [[item] + r for r in rest for item in groups[0]]
 
-def generateSchedulesHelper():
-    pass
-
+def generateSchedulesHelper(courses: list[Course], schedule: Schedule):
+    if courses == []:
+        return schedule
+    else:
+        for i in range(len(courses)):
+            for (sec,lec) in courses[i].getSectionLectureCombos():
+                if (sec == None or schedule.canAdd(sec)) and (lec == None or schedule.canAdd(lec)):
+                    oldCourses = copy(courses)
+                    courses.pop(i)
+                    schedule.add(sec)
+                    schedule.add(lec)
+                    solution = generateSchedulesHelper(courses,schedule)
+                    if solution != None:
+                        return solution
+                        #return [solution] + generateSchedulesHelper(courses[1:],schedule)
+                    schedule.remove(sec)
+                    schedule.remove(lec)
+                    courses = oldCourses
+        return None
 
 def getRandomColor() -> tuple[int,int,int]:
     rgbDecimal = hsv_to_rgb(random.random(),0.7,0.65)
     return map(lambda x: int(x*255),rgbDecimal)
 
 
-def distance(x1,y1,x2,y2):
-    return ((x2-x1)**2+(y2-y1)**2)**0.5
+def getCourseReview(course: Course):
+    getProfessorCourseRating
 
 
+
+def getProfessorCourseRating(app,courseID,professor):
+    courseID = courseID[:2] + "-"+ courseID[2:] if "-" not in courseID else courseID
+    courses = app.rating_df[app.rating_df["courseID"] == courseID]
+    coursesByProf = courses[courses["instructor"].str.contains(professor,na=False, case=False)]
+    
+    if len(coursesByProf) == 0:
+        return None
+    else:
+        return getRatings(coursesByProf)
+
+def getRatings(rows):
+    allRatings = [x for L in rows["rating"] for x in L]
+    averageRating = sum(allRatings)/len(allRatings)
+    averageLoad = sum(rows["hrsPerWeek"])/len(rows["hrsPerWeek"])
+    print(rows["instructor"].iat[0],averageRating,averageLoad)
 
 
 
