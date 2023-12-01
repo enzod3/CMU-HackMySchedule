@@ -53,7 +53,6 @@ def onAppStart(app: any):
 
     generateSchedules(app)
 
-    app.schedules[0].updateInfo()
     
 
 class Period():
@@ -177,13 +176,14 @@ class Schedule():
     def getTotalUnits(self) -> float:
         return sum([u for (s,u) in {(section.courseID,section.units) for section in self.sections}])
     def updateInfo(self):
+        self.averageBreak = calculateMedianBreak(self.sections)
         (self.workload,self.instructorScore) = getCourseReview(self.app,self.sections)
     def getWorkload(self) -> float:
         return self.workload
     def getInstructorScore(self) -> float:
         return self.instructorScore
     def getAverageBreak(self) -> float:
-        pass
+        return self.averageBreak
     def getOverall(self) -> float:
         pass
 
@@ -314,8 +314,8 @@ class ScheduleView():
         drawLabel("Workload",self.xOffset +480,30,size=18,bold=True )
         drawLabel("Instructor",self.xOffset +580,15,size=18,bold=True )
         drawLabel("Rating",self.xOffset +580,35,size=18,bold=True )
-        drawLabel("Course",self.xOffset +680,15,size=18,bold=True )
-        drawLabel("Breaks",self.xOffset +680,35,size=18,bold=True )
+        drawLabel("Median",self.xOffset +680,15,size=18,bold=True )
+        drawLabel("Break",self.xOffset +680,35,size=18,bold=True )
         self.drawSchedules()
     
     def drawSchedules(self):
@@ -327,7 +327,8 @@ class ScheduleView():
             drawLabel(", ".join(sorted(schedule.getCourseIDs())),self.xOffset + 200,yOff + self.rowHeight//2,size=14,bold=True)
             drawLabel(schedule.getTotalUnits(),self.xOffset +380,yOff + self.rowHeight//2,size=16,bold=True)
             drawLabel(schedule.getWorkload(),self.xOffset +480,yOff + self.rowHeight//2,size=16,bold=True)
-            drawLabel(schedule.getInstructorScore(),self.xOffset +580,yOff + self.rowHeight//2,size=16,bold=True)
+            drawLabel(schedule.getInstructorScore(),self.xOffset + 580,yOff + self.rowHeight//2,size=16,bold=True)
+            drawLabel(schedule.getAverageBreak(),self.xOffset + 680,yOff + self.rowHeight//2,size=16,bold=True)
             yOff += self.rowHeight
         if len(self.app.schedules) > 0: #border rect
             drawLine(self.xOffset,yOff,self.xOffset+viewWidth,yOff,lineWidth=.5,fill=rgb(175,175,175))
@@ -454,7 +455,6 @@ def generateSchedulesHelper(courses: list[Course], schedule: Schedule):
                     solution = generateSchedulesHelper(courses,schedule)
                     if solution != None:
                         return solution
-                        #return [solution] + generateSchedulesHelper(courses[1:],schedule)
                     schedule.remove(sec)
                     schedule.remove(lec)
                     courses = oldCourses
@@ -463,6 +463,21 @@ def generateSchedulesHelper(courses: list[Course], schedule: Schedule):
 def getRandomColor() -> tuple[int,int,int]:
     rgbDecimal = hsv_to_rgb(random.random(),0.7,0.65)
     return map(lambda x: int(x*255),rgbDecimal)
+
+
+def calculateMedianBreak(sections: list[Section]):
+    allBreaks = []
+    for d in "MTWRF":
+        periodList = []
+        for section in sections:
+            for day in section.days:
+                if d == day.weekday:
+                    periodList += [day.period]
+        periodList = sorted(periodList,key=lambda period: period.timeRange[0]) #https://docs.python.org/3/howto/sorting.html#key-functions
+        allBreaks += [periodList[i+1].timeRange[0] - periodList[i].timeRange[1] for i in range(len(periodList)-1)]
+    print(allBreaks)
+    mindex = len(allBreaks)//2
+    return (allBreaks[mindex]+allBreaks[-mindex-1])/2
 
 
 def getCourseReview(app: any, sections: set[Section]) ->  set[float,float]: 
@@ -485,12 +500,10 @@ def getCourseReview(app: any, sections: set[Section]) ->  set[float,float]:
         if len(sectionRating) > 0:
             ratings += [sum(sectionRating)/len(sectionRating)]
     if len(workloads) > 0:
-        totalWorkload = sum(workloads)
+        totalWorkload = pythonRound(sum(workloads),2)
     if len(ratings) > 0:
-        totalRating = sum(ratings)/len(ratings)
+        totalRating = pythonRound(sum(ratings)/len(ratings),2)
     return(totalWorkload,totalRating)
-
-
 
 def getProfessorCourseRating(app,courseID,professor):
     courseID = courseID[:2] + "-"+ courseID[2:] if "-" not in courseID else courseID
