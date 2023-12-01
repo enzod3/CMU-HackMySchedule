@@ -4,7 +4,7 @@ from typing import Optional,Callable
 import random
 from colorsys import hsv_to_rgb
 from copy import copy, deepcopy
-
+import math
 
 def onAppStart(app: any):
     app.course_df = pd.read_csv("./data/spring_24.dat", delimiter='\t')
@@ -52,7 +52,8 @@ def onAppStart(app: any):
     addCourse(app, "Business",'73102')
 
     generateSchedules(app)
-    # exit()
+
+    app.schedules[0].updateInfo()
     
 
 class Period():
@@ -101,6 +102,8 @@ class Section(): #sections/recitations
     def addDays(self, days:str, begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
         for day in days:    
             self.days.add(Day(day,begin,end,bld_room,location,instructors))
+    def getInstructors(self):
+        return {day.instructors for day in self.days if day.instructors != "NaN"}
     def conflicts(self,other):
         for day1 in self.days:
             for day2 in other.days:
@@ -145,7 +148,8 @@ class Course():
         
 # Rank, CourseCodes, Workload, Instructor Score, Average Break(Median or Mean),Overall
 class Schedule():
-    def __init__(self,sections: Optional[list[Section]] = []):
+    def __init__(self,app: any,sections: Optional[list[Section]] = []):
+        self.app = app
         self.name = None
         self.sections = set(sections)
         self.workload = None
@@ -172,16 +176,12 @@ class Schedule():
         return list({section.courseID for section in self.sections})
     def getTotalUnits(self) -> float:
         return sum([u for (s,u) in {(section.courseID,section.units) for section in self.sections}])
-    
     def updateInfo(self):
-        pass
-
+        (self.workload,self.instructorScore) = getCourseReview(self.app,self.sections)
     def getWorkload(self) -> float:
-        if self.workload == None:
-            self.updateInfo()
         return self.workload
     def getInstructorScore(self) -> float:
-        pass
+        return self.instructorScore
     def getAverageBreak(self) -> float:
         pass
     def getOverall(self) -> float:
@@ -326,13 +326,12 @@ class ScheduleView():
             drawLabel(i,self.xOffset + 25,yOff + self.rowHeight//2,size=14)
             drawLabel(", ".join(sorted(schedule.getCourseIDs())),self.xOffset + 200,yOff + self.rowHeight//2,size=14,bold=True)
             drawLabel(schedule.getTotalUnits(),self.xOffset +380,yOff + self.rowHeight//2,size=16,bold=True)
+            drawLabel(schedule.getWorkload(),self.xOffset +480,yOff + self.rowHeight//2,size=16,bold=True)
+            drawLabel(schedule.getInstructorScore(),self.xOffset +580,yOff + self.rowHeight//2,size=16,bold=True)
             yOff += self.rowHeight
         if len(self.app.schedules) > 0: #border rect
             drawLine(self.xOffset,yOff,self.xOffset+viewWidth,yOff,lineWidth=.5,fill=rgb(175,175,175))
         
-
-
-
 def redrawAll(app: any):
     app.state["activeButtons"] = []
     app.navbar.draw()
@@ -429,7 +428,9 @@ def generateSchedules(app: any):
 
     
     for courseCombos in createCombos(courseGroupList):
-        allSchedules += [generateSchedulesHelper(requiredCourses + courseCombos,Schedule())]
+        allSchedules += [generateSchedulesHelper(requiredCourses + courseCombos,Schedule(app))]
+    for schedule in allSchedules:
+        schedule.updateInfo()
     app.schedules = allSchedules
 
 def createCombos(groups: list[list[any]]):
@@ -464,8 +465,30 @@ def getRandomColor() -> tuple[int,int,int]:
     return map(lambda x: int(x*255),rgbDecimal)
 
 
-def getCourseReview(course: Course):
-    getProfessorCourseRating
+def getCourseReview(app: any, sections: set[Section]) ->  set[float,float]: 
+    workloads = []
+    ratings = []
+    totalWorkload = None
+    totalRating = None
+    for section in sections:
+        sectionWorkload = []
+        sectionRating = []
+        for instructors in section.getInstructors():
+            if isinstance(instructors,str):
+                for instructor in instructors.split(','):
+                    rating = getProfessorCourseRating(app,section.courseID,instructor.lower())
+                    if rating != None:
+                        sectionWorkload += [rating[0]]
+                        sectionRating += [rating[1]]
+        if len(sectionWorkload) > 0:
+            workloads += [sum(sectionWorkload)/len(sectionWorkload)]
+        if len(sectionRating) > 0:
+            ratings += [sum(sectionRating)/len(sectionRating)]
+    if len(workloads) > 0:
+        totalWorkload = sum(workloads)
+    if len(ratings) > 0:
+        totalRating = sum(ratings)/len(ratings)
+    return(totalWorkload,totalRating)
 
 
 
@@ -481,9 +504,9 @@ def getProfessorCourseRating(app,courseID,professor):
 
 def getRatings(rows):
     allRatings = [x for L in rows["rating"] for x in L]
-    averageRating = sum(allRatings)/len(allRatings)
     averageLoad = sum(rows["hrsPerWeek"])/len(rows["hrsPerWeek"])
-    print(rows["instructor"].iat[0],averageRating,averageLoad)
+    averageRating = sum(allRatings)/len(allRatings)
+    return (averageLoad,averageRating)
 
 
 
