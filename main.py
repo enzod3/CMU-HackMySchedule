@@ -1,5 +1,5 @@
 import pandas as pd
-from cmu_graphics import *
+from cmu_graphics import drawLabel,drawRect,drawImage,rgb,drawLine,runApp,app
 from typing import Optional,Callable
 import random
 from colorsys import hsv_to_rgb
@@ -256,7 +256,7 @@ class Schedule():
         ratingPercent = (self.getInstructorScore() - 1)/4
         breakPercent = min((120 - (self.getAverageBreak()-10)),0)/120 #10min best 120min+ worst
 
-        return pythonRound((workloadPercent*self.app.workloadWeight + ratingPercent*self.app.ratingWeight
+        return round((workloadPercent*self.app.workloadWeight + ratingPercent*self.app.ratingWeight
                + breakPercent*self.app.breakWeight)*10,1)
     def __copy__(self): #https://stackoverflow.com/questions/1500718/how-to-override-the-copy-deepcopy-operations-for-a-python-object
         cls = self.__class__
@@ -724,9 +724,9 @@ def getCourseReview(app: any, sections: set[Section]) ->  set[float,float]:
         if len(sectionRating) > 0:
             ratings.update({section.courseID:[sum(sectionRating)/len(sectionRating)]+existingRating})
     if len(workloads) > 0:
-        totalWorkload = pythonRound(sum([sum(v)/len(v) for v in workloads.values()]),2)
+        totalWorkload = round(sum([sum(v)/len(v) for v in workloads.values()]),2)
     if len(ratings) > 0:
-        totalRating = pythonRound(sum([sum(v)/len(v) if len(v) > 0 else 4 for v in ratings.values()])/len(ratings),2)
+        totalRating = round(sum([sum(v)/len(v) if len(v) > 0 else 4 for v in ratings.values()])/len(ratings),2)
     return(totalWorkload,totalRating)
 
 def getProfessorCourseRating(app,courseID,professor):
