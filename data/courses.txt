@@ -1,2 +1,2 @@
-Required: 15122, 21122, 15151
-Humanities: 80330, 85211
+Required: 15122,21122,15151
+Humanities: 85211
