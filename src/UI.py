@@ -1,9 +1,11 @@
+#All visual components used in application
 from cmu_graphics import drawLabel,drawRect,drawImage,rgb,drawLine
 from courseFunctions import clearCourses,saveCourses,generateSchedules
 from typing import Callable
 from courseClasses import Course, Period
 import math
 
+#Navigation bar on side of screen that supports course input/viewing
 class NavBar():
     def __init__(self,app: any, width: int):
         self.app = app
@@ -59,8 +61,6 @@ class NavBar():
         groupInput = "Group Name" if groupInput == "" else groupInput
         drawRect(100 ,yOff, self.width//2 +10 , 24,fill="White",border="Black")
         drawLabel(groupInput, 105, yOff+12,fill=groupFillColor,size=self.app.primaryFontSize, align="left")
-        # drawRect(self.width//2 +20 ,yOff,self.width//2 - 60, 24,fill=rgb(48,48,48))
-        # drawLabel("Add",self.width//2 +20  +(self.width//2 - 60)//2,yOff+12,fill="White",size=self.app.primaryFontSize)
         if self.app.state["courseInputError"] != "":
             drawLabel(self.app.state["courseInputError"],self.width//2,yOff+38,size=self.app.primaryFontSize,fill="Red")
         yOff += 54  
@@ -116,7 +116,8 @@ class NavBar():
             for course in self.app.courseGroup[key]:
                 if course.courseID in courseIDs:
                     yOff += self.drawCourse(60,course,yOff)
-    
+
+#Button Class makes easy to provide function that gets drawn on rect click
 class Button():
     def __init__(self,onclick: Callable,*args,**kwargs):
         self.onclick = onclick
@@ -147,6 +148,7 @@ class Button():
             left,top = self.left,self.top
         self.border = mouseX > left and mouseY > top and mouseX - left < self.width and mouseY - top < self.height
 
+#View of the course grid with all sections for selected schedule
 class CourseView():
     def __init__(self,app: any,coursesOffset: int):
         self.app = app
@@ -199,7 +201,6 @@ class CourseView():
             minsBegin = viewPeriod.timeRange[0]
             minsEnd = viewPeriod.timeRange[1] + 60  #add 60 because an hour extra is showed on schedule
             minsLength = minsEnd - minsBegin
-            # drawRect(xOff,self.yOffset,viewWidth//5,viewHeight-2)
             
             for section in self.app.schedules[self.app.state["selectedScheduleIndex"]].sections:
                 for day in section.days:
@@ -215,6 +216,7 @@ class CourseView():
                     drawLabel("Proffesor Rating: "+str(section.instructorRating),x+5,y+30,fill="White",size=self.app.secondaryFontSize,align="left")
                     drawLabel("Workload: "+str(section.workload)+"h",x+5,y+44,fill="White",size=self.app.secondaryFontSize,align="left")
 
+#View of all possible schedules for given courses
 class ScheduleView():
     def __init__(self, app:any, xOffset: int):
         self.app = app
@@ -228,7 +230,6 @@ class ScheduleView():
         self.sortOverallButton = Button(lambda:(app.schedules.sort(key=lambda schedule: schedule.getOverall(),reverse=True) or app.state.update({"schedulePage":0})),self.xOffset +820,30,80,30,opacity=20,align="center")
             
     def draw(self):
-        # drawLabel("Schedules",self.xOffset + viewWidth//2 - 5,20,size=20)
         drawLabel("ID",self.xOffset +25,30,size=self.headerTextSize,bold=True)
         drawLabel("Courses",self.xOffset +200,30,size=self.headerTextSize,bold=True)
         drawLabel("Units",self.xOffset +420,30,size=self.headerTextSize,bold=True )
@@ -268,10 +269,10 @@ class ScheduleView():
             drawLabel(str(schedule.getAverageBreak()),self.xOffset + 720,yOff + self.rowHeight//2,size=16,bold=True)
             drawLabel(str(schedule.getOverall()),self.xOffset + 820,yOff + self.rowHeight//2,size=16,bold=True)
             yOff += self.rowHeight
-        if len(self.app.schedules) > 0: #border rect
+        if len(self.app.schedules) > 0: # bottom line because we arent drawing rects
             drawLine(self.xOffset,yOff,self.xOffset+viewWidth,yOff,lineWidth=.5,fill=rgb(175,175,175))
     
-
+#View of all Sections in each course
 class SectionsView():
     def __init__(self, app:any, xOffset: int):
         self.app = app
@@ -287,7 +288,9 @@ class SectionsView():
         for course in allCourses:
             #drawCourse here
             # drawLabel(course.courseID,self.xOffset,yOff,size=self.app.primaryFontSize,align="left")
-            yOff += self.drawCourse(self.xOffset,viewWidth-20,40,course,yOff)
+            yOff = self.drawCourseTitle(self.xOffset,viewWidth-20,40,course,yOff)
+            yOff = self.drawCourseSections(self.xOffset,viewWidth-20,20,course,yOff)
+            yOff += 10
             # for course in self.app.courseGroup[key]:
             #     newY = self.drawCourse(35,course,yOff)
             #     courseEditButton = Button(lambda x=course: (self.app.state.update({"courseEditPopup":True}),self.app.state.update({"editPopupCourseWorkloadInput":str(x.units)}),self.app.state.update({"editPopupCourse":x})),self.width-60,7.5+yOff,20,20,fill="White",opacity=50)
@@ -301,8 +304,17 @@ class SectionsView():
 
             #     yOff += newY
     
-    def drawCourse(self,x: int,width:int,height:int, course: Course, yOff: int) -> int: #returns added yOff
+    def drawCourseTitle(self,x: int,width:int,height:int, course: Course, yOff: int) -> int: #returns added yOff
         drawRect(x+10,yOff,width-20,height,fill=course.color)
-        drawLabel(course.title[:50],x+15,yOff+10,size=self.app.secondaryFontSize,align="left",fill="White")
-        drawLabel(course.courseID,x+15,yOff+25,size=self.app.secondaryFontSize,align="left",fill="White")
-        return height+5
+        drawLabel(f"{course.courseID} - {course.title[:40]}",x+width//2,yOff+20,size=16,bold=True,fill="White")
+        yOff += height
+        return yOff
+    def drawCourseSections(self,x: int,width:int,height:int, course: Course, yOff: int) -> int:
+        # print(len(course.lectures))
+        for lecture in course.lectures:
+            print(yOff)
+            drawRect(x+10,yOff,width-20,height+5,fill=course.color)
+            drawRect(x+width//2,yOff+(height)//2,width-40,height,align="center",fill="White")
+            drawLabel(f"{lecture.lecture}",x+width//2,yOff+(height)//2,size=14)
+            yOff += height + 5
+        return yOff

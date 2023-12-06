@@ -1,3 +1,6 @@
+#Functions that parse the courses reviews and workloads
+
+#Helper funciton that iterates over a section and gets rating for each instructor
 def getSectionReview(app: any, section: any) ->  set[float,float]: 
     workloads = []
     ratings = []
@@ -16,6 +19,7 @@ def getSectionReview(app: any, section: any) ->  set[float,float]:
         totalRating = round(sum([rate for rate in ratings])/len(ratings),2)
     return(totalWorkload,totalRating)
 
+#helper function that searches for a course before passing to getRating
 def getProfessorCourseRating(app,courseID,professor):
     courseID = courseID[:2] + "-"+ courseID[2:] if "-" not in courseID else courseID
     courses = app.rating_df[app.rating_df["courseID"] == courseID]
@@ -26,12 +30,14 @@ def getProfessorCourseRating(app,courseID,professor):
     else:
         return getRatings(coursesByProf)
 
+#gets the workload and rating for pandas rows
 def getRatings(rows):
     allRatings = [x for L in rows["rating"] for x in L]
     averageLoad = sum(rows["hrsPerWeek"])/len(rows["hrsPerWeek"])
     averageRating = sum(allRatings)/len(allRatings)
     return (averageLoad,averageRating)
 
+#gets the median break for a given schedule
 def calculateMedianBreak(sections: list[any]):
     allBreaks = []
     for d in "MTWRF":

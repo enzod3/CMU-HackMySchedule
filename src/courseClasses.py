@@ -1,8 +1,10 @@
+#All Classes used for Schedules And Courses
 from typing import Optional
 from courseRatings import getSectionReview,calculateMedianBreak
 from copy import deepcopy
 from utils import createCombos
 
+#Represents a specific day + begin and end time
 class Period():
     def __init__(self, day: str, begin: str,end: str):
         self.day = day
@@ -22,6 +24,7 @@ class Period():
     def __hash__(self): #https://docs.python.org/3.5/reference/datamodel.html#object.__hash__
         return hash((self.day, self.timeRange))
 
+#Represents a specific class day for a given section
 class Day():
     def __init__(self,day:str,begin:str,end:str,bld_room:str,location:str,instructors: list[str]):
         self.weekday = day
@@ -49,7 +52,8 @@ class Day():
             setattr(result, k, deepcopy(v, memo))
         return result
 
-class Section(): #sections/recitations
+#Section is a collection of Days that make up a Lecture or Section
+class Section(): 
     def __init__(self,app:any,courseID: str, title:str,units:float, color, section:str,days:str,begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
         self.app = app
         self.courseID = courseID
@@ -63,7 +67,6 @@ class Section(): #sections/recitations
         self.days = set()
         self.addDays(days,begin,end,bld_room,location,instructors)
     def __repr__(self):
-        # dayString = "".join([day.weekday for day in self.days])
         return f"{self.courseID} {self.section}"
     def addDays(self, days:str, begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
         for day in days:    
@@ -96,7 +99,9 @@ class Section(): #sections/recitations
         result.__dict__.update(self.__dict__)
         return result
     
-class Lecture(): #Every Class has a lecture taught by main professor --> some contain sections
+#Every Class has a lecture taught by main professor --> some contain sections
+#Lecture contains a single lecture and multiple sections that are optional for that lecture
+class Lecture(): 
     def __init__(self,lecture: Section, sections: Optional[list[Section]] = []):
         self.lecture = lecture
         self.sections = set(sections)
@@ -116,6 +121,7 @@ class Lecture(): #Every Class has a lecture taught by main professor --> some co
                 setattr(result, k, deepcopy(v, memo))
         return result
 
+#Course Class, 1 course per CourseID that is added, contains lecturs
 class Course():
     def __init__(self,courseID: str, title:str,units:float,lectures: list[Lecture],color):
         self.courseID = courseID
@@ -144,7 +150,8 @@ class Course():
             combos += createCombos([[lecture.lecture],sections])
         return combos
         
-# Rank, CourseCodes, Workload, Instructor Score, Average Break(Median or Mean),Overall
+#Schedule is a collection of sections that make up the schedule you view
+#Has multiple methods to retrieve statistics about the schedule
 class Schedule():
     def __init__(self,app: any,sections: Optional[list[Section]] = []):
         self.app = app
@@ -172,8 +179,6 @@ class Schedule():
         return list({section.courseID for section in self.sections})
     def getTotalUnits(self) -> float:
         return sum([u for (s,u) in {(section.courseID,section.units) for section in self.sections}])
-    # def updateInfo(self):
-    #     (self.workload,self.instructorScore) = getCourseReview(self.app,self.sections)
     def getWorkload(self) -> float:
         courseDict = dict()
         for section in self.sections:

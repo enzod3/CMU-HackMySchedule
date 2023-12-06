@@ -1,3 +1,4 @@
+#all functions that modify schedules and courses 
 from copy import copy,deepcopy
 from courseClasses import Schedule, Course, Lecture,Section
 import pandas as pd
@@ -5,8 +6,9 @@ from utils import createCombos,getRandomColor
 from typing import Optional
 from cmu_graphics import rgb
 
+#Creates Combinations of Courses and calls helper function to generate schedules
 def generateSchedules(app: any):
-    for k in list(app.courseGroup.keys()): #clear emptyGroups/ using list to not throw erroring when deleting
+    for k in list(app.courseGroup.keys()): #clear emptyGroups
         if len(app.courseGroup[k]) == 0:
             del app.courseGroup[k]
     courseGroupList = [app.courseGroup[id] for id in app.courseGroup if id != "Required"]
@@ -23,7 +25,7 @@ def generateSchedules(app: any):
     allSchedules = sorted(allSchedules,key=lambda schedule: schedule.getOverall(),reverse=True)
     app.schedules = allSchedules
 
-
+#Recursive schedule generator that finds all unique schedules for a given list of courses
 def generateSchedulesHelper(courses: list[Course], schedule: Schedule, validSchedules: list[Schedule], seen:set):
     if courses == [] and schedule.getTotalUnits() >= schedule.app.minUnits:
         validSchedules.append(deepcopy(schedule))
@@ -43,17 +45,19 @@ def generateSchedulesHelper(courses: list[Course], schedule: Schedule, validSche
                     schedule.remove(lec)    
         return solutions 
 
-
+#Clear all courses
 def clearCourses(app):
     app.courseGroup = dict()
     app.schedules = []
 
+#Save Courses to Save file
 def saveCourses(app):
     with open('../data/courses.txt', 'w') as file:
         for group, courseIDs in app.courseGroup.items():
             courseIDs = ', '.join(map(str, courseIDs))
             file.write(f"{group}: {courseIDs}\n")
 
+#addCourse() helper that handles errors and resets inputs
 def addCourseHelper(app):
     try:
         groupID = app.state["groupInput"] if app.state["groupInput"] != "" else "Required"
@@ -63,6 +67,7 @@ def addCourseHelper(app):
     app.state["courseInput"] = ""
     app.state["groupInput"] = ""
 
+#Finds a course in the springcourses data file and creates the proper Course Object
 def addCourse(app:any, groupID: str, courseID: int, init: Optional[bool]=False,units: Optional[int]=None):
     if courseID in {c.courseID for courses in app.courseGroup.values() for c in courses}:
         raise ValueError("Course already added")
@@ -111,7 +116,7 @@ def addCourse(app:any, groupID: str, courseID: int, init: Optional[bool]=False,u
             if (allSections == [] or allSections[-1].days != newSection.days or allSections[-1].courseID != newSection.courseID):
                 allSections += [newSection]
     for i, lecture in enumerate(allLectures):
-        chunkSize = len(allSections)//len(allLectures) #1 if len(allSections) == 0 else len(allSections)//len(allLectures)
+        chunkSize = len(allSections)//len(allLectures)
         courseInfo["lectures"] += [Lecture(lecture,allSections[i*chunkSize:(i+1)*chunkSize])]
     if courseInfo["lectures"] == []:
         for section in allSections:

@@ -1,9 +1,10 @@
+#Main file
 import pandas as pd
 from cmu_graphics import drawLabel,drawRect,rgb,runApp,app
 from courseFunctions import generateSchedules,addCourse,addCourseHelper
 from UI import NavBar,CourseView,ScheduleView,SectionsView,Button
 
-
+#cmu graphics on app start
 def onAppStart(app: any):
     app.course_df = pd.read_csv("../data/spring_24.dat", delimiter='\t')
     mask = app.course_df['Location'].str.contains('Qatar', na=False)
@@ -42,7 +43,6 @@ def onAppStart(app: any):
     # ---------- APP VIEW STATE --------------
     app.state = dict()
     app.state["selectedMenu"] = "sections" 
-    # app.state["selectedCourseGroup"] = None
     app.state["activeButtons"] = []
     app.state["courseInput"] = ""
     app.state["groupInput"] = ""
@@ -66,9 +66,8 @@ def onAppStart(app: any):
                 except Exception as e:
                     print(e)
     generateSchedules(app)
-    # for schedule in app.schedules:
-    #     schedule.updateInfo()
     
+#cmu graphics redraw all function
 def redrawAll(app: any):
     app.state["activeButtons"] = []
     app.navbar.draw()
@@ -81,6 +80,7 @@ def redrawAll(app: any):
             app.sectionsview.draw()
     drawPopups(app)
 
+#draws any popups that are active
 def drawPopups(app:any):
     if app.state["unitPopup"]:
         app.state["activeButtons"] = [app.popupUnitButton]
@@ -111,15 +111,17 @@ def drawPopups(app:any):
         drawLabel(workloadInput,34+app.width//2, app.height//2+12,fill="Black",size=app.primaryFontSize, align="right")
         drawLabel("Workload:",app.width//2-5, app.height//2+12,fill="Black",size=app.primaryFontSize, align="right")
 
+#Handles button clicks for active buttons
 def onMousePress(app, mouseX: int, mouseY:int):
     for button in app.state["activeButtons"]:
         button.checkClick(mouseX,mouseY)
 
-
+#Handles button hovers for active buttons
 def onMouseMove(app, mouseX: int, mouseY:int):
     for button in app.state["activeButtons"]:
         button.checkHover(mouseX,mouseY)
 
+#Handles all app/key inputs
 def onKeyPress(app,key):
     app.state["courseInputError"] = ""
     if app.state["courseEditPopup"]:
@@ -154,8 +156,5 @@ def onKeyPress(app,key):
         app.state["schedulePage"] += 1
 
 
-
-
 if __name__ == "__main__":
     runApp(1280,720)
-
