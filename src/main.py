@@ -1,9 +1,5 @@
 import pandas as pd
-from cmu_graphics import drawLabel,drawRect,drawImage,rgb,drawLine,runApp,app
-from cmu_graphics import round as cmuRound
-from typing import Optional,Callable
-import random
-from courseClasses import Period,Section,Lecture,Course,Schedule
+from cmu_graphics import drawLabel,drawRect,rgb,runApp,app
 from courseFunctions import generateSchedules,addCourse,addCourseHelper
 from UI import NavBar,CourseView,ScheduleView,Button
 
@@ -24,10 +20,12 @@ def onAppStart(app: any):
     app.navbar = NavBar(app,350)
     app.courseview = CourseView(app,350)
     app.scheduleview = ScheduleView(app,350)
-    app.popupUnitButton = Button(lambda: app.state.update({"unitPopup":False}) ,app.width//2 - 20,app.height//2 + 20,40,20,fill=rgb(45,45,45))
+    app.popupUnitButton = Button(lambda: (app.state.update({"unitPopup":False}),
+                                                addCourse(app,app.state["unitPopupGroupID"],app.state["unitPopupCourseID"],units=app.state["unitPopupInput"]),
+                                                app.state.update({"unitPopupInput":""})),
+                                                app.width//2 - 40,app.height//2 + 66,100,24,fill=rgb(45,45,45))
     app.popupCourseSaveButton = Button(lambda: (app.state.update({"courseEditPopup":False}),
-                                                app.state["editPopupCourse"].setWorkload(app.state["editPopupCourseWorkloadInput"]),
-                                                app.state["editPopupCourse"].updateSectionWorkloads(app.state["editPopupCourseWorkloadInput"]),
+                                                app.state["editPopupCourse"].overrideWorkloads(app.state["editPopupCourseWorkloadInput"]),
                                                 app.state.update({"editPopupCourseWorkloadInput":""}),
                                                 generateSchedules(app)),
                                                 app.width//2 - 40,app.height//2 + 66,100,24,fill=rgb(45,45,45))
@@ -53,9 +51,7 @@ def onAppStart(app: any):
     app.state["selectedScheduleIndex"] = 0
     app.state["schedulePage"] = 0
     app.state["unitPopup"] = False
-    app.state["unitPopupCourseID"] = ""
     app.state["unitPopupInput"] = ""
-
     app.state["courseEditPopup"] = False
     app.state["editPopupCourse"] = None
     app.state["editPopupCourseWorkloadInput"] = ""
@@ -90,6 +86,15 @@ def drawPopups(app:any):
         drawRect(0,0,app.width,app.height,opacity=80)
         drawRect(app.width//2 - 125, app.height//2 - 100, 250,200, fill="White", border="Black")
         app.popupUnitButton.draw()
+        drawLabel("Save & Close",app.width//2 +10,app.height//2 + 78,fill="White",size=app.primaryFontSize)
+
+        drawLabel("Add Units for Variable Course: " + app.state["unitPopupCourseID"],app.width//2,app.height//2-78,size=app.primaryFontSize)
+        unitInput = "0" if app.state["unitPopupInput"] == "" else app.state["unitPopupInput"]
+        drawRect(5+app.width//2,app.height//2,40, 24,fill="White",border="Black")
+        drawLabel(unitInput,34+app.width//2, app.height//2+12,fill="Black",size=app.primaryFontSize, align="right")
+        drawLabel("Units:",app.width//2-5, app.height//2+12,fill="Black",size=app.primaryFontSize, align="right")
+
+
     elif app.state["courseEditPopup"]:
         app.state["activeButtons"] = [app.popupCourseSaveButton,app.popupCourseCancelButton]
         drawRect(0,0,app.width,app.height,opacity=80)
@@ -100,14 +105,19 @@ def drawPopups(app:any):
         drawLabel("Cancel",app.width//2 +90,app.height//2 + 78,fill="White",size=app.primaryFontSize)
 
         drawLabel("Edit Course: " + app.state["editPopupCourse"].courseID,app.width//2,app.height//2-78,size=app.primaryFontSize)
-        unitInput = "0" if app.state["editPopupCourseWorkloadInput"] == "" else app.state["editPopupCourseWorkloadInput"]
+        workloadInput = "0" if app.state["editPopupCourseWorkloadInput"] == "" else app.state["editPopupCourseWorkloadInput"]
         drawRect(5+app.width//2,app.height//2,40, 24,fill="White",border="Black")
-        drawLabel(unitInput,34+app.width//2, app.height//2+12,fill="Black",size=app.primaryFontSize, align="right")
+        drawLabel(workloadInput,34+app.width//2, app.height//2+12,fill="Black",size=app.primaryFontSize, align="right")
         drawLabel("Workload:",app.width//2-5, app.height//2+12,fill="Black",size=app.primaryFontSize, align="right")
 
 def onMousePress(app, mouseX: int, mouseY:int):
     for button in app.state["activeButtons"]:
         button.checkClick(mouseX,mouseY)
+
+
+def onMouseMove(app, mouseX: int, mouseY:int):
+    for button in app.state["activeButtons"]:
+        button.checkHover(mouseX,mouseY)
 
 def onKeyPress(app,key):
     app.state["courseInputError"] = ""
@@ -117,6 +127,12 @@ def onKeyPress(app,key):
             app.state["editPopupCourseWorkloadInput"] += key
         elif key == "backspace":
             app.state["editPopupCourseWorkloadInput"] = app.state["editPopupCourseWorkloadInput"][:-1]
+    if app.state["unitPopup"]:
+        if ((key.isnumeric() or (key == "." and "." not in app.state["unitPopupInput"])) and
+            float(app.state["unitPopupInput"] + key) <=30 and len( app.state["unitPopupInput"]) <= 4):
+            app.state["unitPopupInput"] += key
+        elif key == "backspace":
+            app.state["unitPopupInput"] = app.state["unitPopupInput"][:-1]
 
     elif key.isnumeric() and app.state["selectedMenu"] =="schedules" and len(app.state["courseInput"]) < 5:
         app.state["courseInput"] += key

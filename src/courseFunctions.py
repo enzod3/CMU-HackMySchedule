@@ -1,4 +1,4 @@
-from copy import deepcopy
+from copy import copy,deepcopy
 from courseClasses import Schedule, Course, Lecture,Section
 import pandas as pd
 from utils import createCombos,getRandomColor
@@ -6,10 +6,13 @@ from typing import Optional
 from cmu_graphics import rgb
 
 def generateSchedules(app: any):
+    for k in list(app.courseGroup.keys()): #clear emptyGroups/ using list to not throw erroring when deleting
+        if len(app.courseGroup[k]) == 0:
+            del app.courseGroup[k]
     courseGroupList = [app.courseGroup[id] for id in app.courseGroup if id != "Required"]
     requiredCourses = app.courseGroup["Required"] if "Required" in app.courseGroup else []
     allSchedules = []
-    
+
     for courseCombos in createCombos(courseGroupList):
         validSchedules = []
         generateSchedulesHelper(requiredCourses + courseCombos,Schedule(app),validSchedules,set())
@@ -23,7 +26,6 @@ def generateSchedules(app: any):
 
 def generateSchedulesHelper(courses: list[Course], schedule: Schedule, validSchedules: list[Schedule], seen:set):
     if courses == [] and schedule.getTotalUnits() >= schedule.app.minUnits:
-        print(schedule.getTotalUnits())
         validSchedules.append(deepcopy(schedule))
     else:
         solutions = [] 
@@ -47,7 +49,7 @@ def clearCourses(app):
     app.schedules = []
 
 def saveCourses(app):
-    with open('./data/courses.txt', 'w') as file:
+    with open('../data/courses.txt', 'w') as file:
         for group, courseIDs in app.courseGroup.items():
             courseIDs = ', '.join(map(str, courseIDs))
             file.write(f"{group}: {courseIDs}\n")
@@ -61,7 +63,7 @@ def addCourseHelper(app):
     app.state["courseInput"] = ""
     app.state["groupInput"] = ""
 
-def addCourse(app:any, groupID: str, courseID: int, init: Optional[bool]=False):
+def addCourse(app:any, groupID: str, courseID: int, init: Optional[bool]=False,units: Optional[int]=None):
     if courseID in {c.courseID for courses in app.courseGroup.values() for c in courses}:
         raise ValueError("Course already added")
     if (df_filtered := app.course_df[app.course_df["Course"] == courseID]).empty:
@@ -79,10 +81,17 @@ def addCourse(app:any, groupID: str, courseID: int, init: Optional[bool]=False):
     if pd.isnull(courseInfo["units"]):
         course = app.course_df.iloc[courseIndex]
         courseInfo["units"] = course["Units"]
-
-    if courseInfo["units"] == "VAR":
-        return 
-        # courseInfo["units"] = getCourseUnits(app,courseID)
+    
+    if units != None:
+        try:
+            courseInfo["units"] = float(units)
+        except:
+            courseInfo["units"] = 0
+    elif courseInfo["units"] == "VAR":
+        app.state["unitPopup"] = True
+        app.state["unitPopupCourseID"] = courseID
+        app.state["unitPopupGroupID"] = groupID
+        return
     else:
         courseInfo["units"] = float(courseInfo["units"])
 
@@ -119,10 +128,3 @@ def addCourse(app:any, groupID: str, courseID: int, init: Optional[bool]=False):
         app.courseGroup[groupID] = [newCourse]
     if not init:
         generateSchedules(app)
-
-def getCourseUnits(app,courseID:str):
-    app.state["unitPopup"] = True
-    app.state["unitPopupCourseID"] = courseID
-    while app.state["unitPopup"]:
-        pass
-

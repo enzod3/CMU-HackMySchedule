@@ -2,6 +2,7 @@ from cmu_graphics import drawLabel,drawRect,drawImage,rgb,drawLine
 from courseFunctions import clearCourses,saveCourses,generateSchedules
 from typing import Callable
 from courseClasses import Course, Period
+import math
 
 class NavBar():
     def __init__(self,app: any, width: int):
@@ -9,8 +10,10 @@ class NavBar():
         self.width = width
         self.coursesOffset = 140
         self.bg_color = rgb(245,246,248)
-        self.builderButton =  Button(lambda: app.state.update({"selectedMenu":"builder"}) ,30,25,self.width-60,40,fill=rgb(45,45,45))
-        self.schedulesButton =  Button(lambda: app.state.update({"selectedMenu":"schedules"}) ,30,70,self.width-60,40,fill=rgb(45,45,45))
+        self.builderButton =  Button(lambda: app.state.update({"selectedMenu":"builder"}) ,30,20,self.width-60,30,fill=rgb(45,45,45))
+        self.schedulesButton =  Button(lambda: app.state.update({"selectedMenu":"schedules"}) ,30,55,self.width-60,30,fill=rgb(45,45,45))
+        self.sectionsButton =  Button(lambda: app.state.update({"selectedMenu":"sections"}) ,30,90,self.width-60,30,fill=rgb(45,45,45))
+
         self.clearButton = Button(lambda: clearCourses(self.app),30,app.height - 80,self.width-60,30,fill=rgb(145,145,145))
         self.saveButton = Button(lambda: saveCourses(self.app),30,app.height - 40,self.width-60,30,fill=rgb(145,145,145))
 
@@ -22,6 +25,9 @@ class NavBar():
         self.schedulesButton.draw()
         drawLabel("Schedules View",self.width//2,90,fill="White",size=self.app.primaryFontSize)
         self.app.state["activeButtons"] += [self.schedulesButton]
+        self.sectionsButton.draw()
+        drawLabel("Section Blacklist",self.width//2,90,fill="White",size=self.app.primaryFontSize)
+        self.app.state["activeButtons"] += [self.sectionsButton]
         match self.app.state["selectedMenu"]:
             case "builder":
                 self.drawScheduleSection()
@@ -29,19 +35,13 @@ class NavBar():
                 self.drawNavCourses()
 
     def drawNavCourses(self):
-
         yOff = self.coursesOffset
-
-
-        self.clearButton.draw()
+        self.clearButton.draw(30,self.app.height - 80,self.width-60,30)
         drawLabel("Clear Courses",self.width//2,self.app.height - 65,fill="White",size=self.app.primaryFontSize)
         self.app.state["activeButtons"] += [self.clearButton]
-
-        self.saveButton.draw()
+        self.saveButton.draw(30,self.app.height - 40,self.width-60,30)
         drawLabel("Save Courses",self.width//2,self.app.height - 25,fill="White",size=self.app.primaryFontSize)
         self.app.state["activeButtons"] += [self.saveButton]
-
-
         drawLabel("Add Courses",10,yOff,size=self.app.primaryFontSize,align="left")
         yOff+= self.app.primaryFontSize 
 
@@ -66,7 +66,7 @@ class NavBar():
             drawLabel("Required",10,yOff,size=self.app.primaryFontSize,align="left")
             yOff += 10
             for course in self.app.courseGroup["Required"]:
-                newY = self.drawCourse(course,yOff)
+                newY = self.drawCourse(35,course,yOff)
                 courseEditButton = Button(lambda x=course: (self.app.state.update({"courseEditPopup":True}),self.app.state.update({"editPopupCourse":x})),self.width-60,7.5+yOff,20,20,fill="White",opacity=50) #self.app.state.update({"editPopupCourseWorkloadInput":str(x.units)})
                 self.app.state["activeButtons"] += [courseEditButton]
                 courseEditButton.draw()
@@ -83,7 +83,7 @@ class NavBar():
             drawLabel(key,10,yOff,size=self.app.primaryFontSize,align="left")
             yOff += 10
             for course in self.app.courseGroup[key]:
-                newY = self.drawCourse(course,yOff)
+                newY = self.drawCourse(35,course,yOff)
                 courseEditButton = Button(lambda x=course: (self.app.state.update({"courseEditPopup":True}),self.app.state.update({"editPopupCourseWorkloadInput":str(x.units)}),self.app.state.update({"editPopupCourse":x})),self.width-60,7.5+yOff,20,20,fill="White",opacity=50)
                 self.app.state["activeButtons"] += [courseEditButton]
                 courseEditButton.draw()
@@ -92,28 +92,43 @@ class NavBar():
                 self.app.state["activeButtons"] += [courseRemoveButton]
                 courseRemoveButton.draw()
                 drawImage("../assets/x-19-16.png",self.width-33,9.5+yOff)
+
+                yOff += newY
                 
-    def drawCourse(self, course: Course, yOff: int) -> int: #returns added yOff
-        drawRect(10,yOff,self.width-20,35,fill=course.color)
-        drawLabel(course.title[:40],15,yOff+10,size=self.app.secondaryFontSize,align="left",fill="White")
+    def drawCourse(self,height:int, course: Course, yOff: int) -> int: #returns added yOff
+        drawRect(10,yOff,self.width-20,height,fill=course.color)
+        drawLabel(course.title[:50],15,yOff+10,size=self.app.secondaryFontSize,align="left",fill="White")
         drawLabel(course.courseID,15,yOff+25,size=self.app.secondaryFontSize,align="left",fill="White")
-        return 40
+        return height+5
 
     def drawScheduleSection(self):
         yOff = self.coursesOffset
         viewIndex = (self.app.state["selectedScheduleIndex"]+1)
         label = f"Viewing Schedule {viewIndex} of {len(self.app.schedules)}" if len(self.app.schedules) != 0 else "Go Add Some Courses!"
         drawLabel(label,self.width//2,yOff,size=16)
-        yOff+= 18
+        yOff+= 30
+        drawLabel("Courses",self.width//2,yOff,size=16)
+        yOff+= 20
+        courseIDs = {section.courseID for section in self.app.schedules[self.app.state["selectedScheduleIndex"]].sections}
+        for key in self.app.courseGroup:
+            for course in self.app.courseGroup[key]:
+                if course.courseID in courseIDs:
+                    yOff += self.drawCourse(60,course,yOff)
     
 class Button():
     def __init__(self,onclick: Callable,*args,**kwargs):
         self.onclick = onclick
+        self.border = False
         self.rectArgs = args
         self.rectKwargs = kwargs
         (self.left,self.top,self.width,self.height) = args
-    def draw(self):
-        drawRect(*self.rectArgs,**self.rectKwargs)
+    def draw(self,*args):
+        borderColor = "Black" if self.border else None
+        #put before kwargs so that can be overriden
+        if len(args) > 0:
+            drawRect(*args,border=borderColor,**self.rectKwargs)
+        else:
+            drawRect(*self.rectArgs,border=borderColor,**self.rectKwargs)
     def checkClick(self,mouseX:int, mouseY: int):
         if self.rectKwargs.get("align") == "center":
             left = self.left - self.width//2
@@ -122,12 +137,20 @@ class Button():
             left,top = self.left,self.top
         if mouseX > left and mouseY > top and mouseX - left < self.width and mouseY - top < self.height:
             self.onclick()
+    def checkHover(self,mouseX:int, mouseY: int):
+        if self.rectKwargs.get("align") == "center":
+            left = self.left - self.width//2
+            top = self.top - self.height//2
+        else:
+            left,top = self.left,self.top
+        self.border = mouseX > left and mouseY > top and mouseX - left < self.width and mouseY - top < self.height
 
 class CourseView():
     def __init__(self,app: any,coursesOffset: int):
         self.app = app
         self.coursesOffset = coursesOffset
-        self.times = ["8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM"]
+        self.times = ["8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM","6:00 PM","7:00 PM","8:00 PM","9:00 PM","10:00 PM","11:00 PM","12:00 AM"]
+        self.viewTimes = self.times
         self.days = ["Monday","Tuesday","Wednesday","Thursday","Friday"]
         self.dayIndexs = {
             "M":0,
@@ -137,7 +160,8 @@ class CourseView():
             "F":4,
         }
         self.timeWidth = 80
-        self.yOffset = 35
+        self.yOffset = 45
+        self.bottomPadding = 20
     def draw(self):
         
         self.drawGrid()
@@ -146,10 +170,20 @@ class CourseView():
     def drawGrid(self):
         xOff = self.coursesOffset + self.timeWidth
         viewWidth = self.app.width - xOff
-        for i, time in enumerate(self.times):
-            drawLabel(time,xOff-10,self.yOffset+i*((self.app.height-40)//len(self.times)),align="right",size=self.app.secondaryFontSize)
-            drawLine(xOff,self.yOffset+i*((self.app.height-40)//len(self.times)),self.app.width,35+i*((self.app.height-40)//len(self.times)),fill=rgb(235,236,238),lineWidth=3)
-            drawLine(xOff,self.yOffset+i*((self.app.height-40)//len(self.times))+(self.app.height-40)//(len(self.times)*2),self.app.width,35+i*((self.app.height-40)//len(self.times))+(self.app.height-40)//(len(self.times)*2),fill=rgb(235,236,238),lineWidth=1)
+        if self.app.schedules:
+            allTimePeriods = [day.period.timeRange for section in self.app.schedules[self.app.state["selectedScheduleIndex"]].sections for day in section.days]
+            allTimes = [x for t in allTimePeriods for x in t]
+            beginIndex = [0,1][min(allTimes)>=540] #start at 8 or 9am
+            endIndex = 9 + max((math.ceil(max(allTimes)/60)-17),0) #how many hours after 4pm should it end (index9=4pm)
+            self.viewTimes = self.times[beginIndex:endIndex] 
+        else:
+            self.viewTimes[1:9] #9:00 AM to 4:00 PM 
+        for i in range(len(self.viewTimes)+1): #No out of range because no class past 11PM
+            time = self.times[i]
+            viewHeight = self.app.height-40 - self.bottomPadding
+            drawLabel(time,xOff-10,self.yOffset+i*((viewHeight)//len(self.viewTimes)),align="right",size=self.app.secondaryFontSize)
+            drawLine(xOff,self.yOffset+i*((viewHeight)//len(self.viewTimes)),self.app.width,self.yOffset+i*((viewHeight)//len(self.viewTimes)),fill=rgb(235,236,238),lineWidth=3)
+            drawLine(xOff,self.yOffset+i*((viewHeight)//len(self.viewTimes))+(viewHeight)//(len(self.viewTimes)*2),self.app.width,35+i*((viewHeight)//len(self.viewTimes))+(viewHeight)//(len(self.viewTimes)*2),fill=rgb(235,236,238),lineWidth=1)
         for i,day in enumerate(self.days):
             drawLabel(day,xOff+i*viewWidth//len(self.days)+viewWidth//(len(self.days)*2), 20, size=self.app.primaryFontSize)
             drawLine(xOff+i*viewWidth//len(self.days),0,xOff + i*viewWidth//len(self.days),self.app.height,fill=rgb(235,236,238),lineWidth=3)
@@ -157,9 +191,9 @@ class CourseView():
     def drawSectionsOnSchedule(self):
         if self.app.schedules:
             xOff = self.coursesOffset + self.timeWidth
-            viewHeight = self.app.height - self.yOffset
+            viewHeight = self.app.height - self.yOffset -self.bottomPadding
             viewWidth = self.app.width - xOff
-            viewPeriod = Period("",self.times[0],self.times[-1]) 
+            viewPeriod = Period("",self.viewTimes[0],self.viewTimes[-1]) 
             minsBegin = viewPeriod.timeRange[0]
             minsEnd = viewPeriod.timeRange[1] + 60  #add 60 because an hour extra is showed on schedule
             minsLength = minsEnd - minsBegin
@@ -176,6 +210,8 @@ class CourseView():
                     drawRect(x,y,width,height,fill=section.color)
                     drawLabel(section,x+width//2,y+10,fill="White",size=self.app.primaryFontSize)
                     drawLine(x,y+20,x+width,y+20,fill = "White",opacity=30,lineWidth=3)
+                    drawLabel("Proffesor Rating: "+str(section.instructorRating),x+5,y+30,fill="White",size=self.app.secondaryFontSize,align="left")
+                    drawLabel("Workload: "+str(section.workload)+"h",x+5,y+44,fill="White",size=self.app.secondaryFontSize,align="left")
 
 class ScheduleView():
     def __init__(self, app:any, xOffset: int):
@@ -217,8 +253,12 @@ class ScheduleView():
             if schedule == []:
                 break
             schedule = schedule[0]
+            func = lambda i=i:(self.app.state.update({"selectedScheduleIndex":i,"selectedMenu":"builder"}))
+            courseButton = Button(func,self.xOffset,yOff,viewWidth,self.rowHeight,fill=None)
+            courseButton.draw()
+            self.app.state["activeButtons"] += [courseButton]
             drawLine(self.xOffset,yOff,self.xOffset+viewWidth,yOff,lineWidth=.5,fill=rgb(175,175,175))
-            drawLabel(str(i),self.xOffset + 25,yOff + self.rowHeight//2,size=14)
+            drawLabel(str(i+1),self.xOffset + 25,yOff + self.rowHeight//2,size=14)
             drawLabel(", ".join(sorted(schedule.getCourseIDs())),self.xOffset + 200,yOff + self.rowHeight//2,size=14,bold=True)
             drawLabel(str(schedule.getTotalUnits()),self.xOffset +420,yOff + self.rowHeight//2,size=16,bold=True)
             drawLabel(str(schedule.getWorkload()),self.xOffset +520,yOff + self.rowHeight//2,size=16,bold=True)

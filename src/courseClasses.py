@@ -121,7 +121,6 @@ class Course():
         self.courseID = courseID
         self.title = title
         self.units = units
-        self.workload = None
         self.lectures = lectures
         self.color = color
     def __repr__(self):
@@ -130,13 +129,13 @@ class Course():
         return isinstance(other,type(self)) and ((self.courseID,self.title,self.units,self.lectures)==(other.courseID,other.title,other.units,other.lectures))
     def __hash__(self): #https://docs.python.org/3.5/reference/datamodel.html#object.__hash__
         return hash((self.courseID,self.title,self.units,self.lectures,self.sections))
-    def setWorkload(self,workload:float):
-        self.workload = workload
-    def updateSectionWorkloads(self,workload):
+    def overrideWorkloads(self,workload:str):
+        workload = 0 if workload == "" else float(workload)
         for lecture in self.lectures:
-            lecture.overrideWorkload = float(workload)
+            lecture.lecture.overrideWorkload = workload
             for section in lecture.sections:
-                section.overrideWorkload = float(workload)
+                section.overrideWorkload = workload
+
 
     def getSectionLectureCombos(self):
         combos = []
@@ -178,7 +177,8 @@ class Schedule():
     def getWorkload(self) -> float:
         courseDict = dict()
         for section in self.sections:
-            courseDict.update({section.courseID:courseDict.get(section.courseID,[])+[section.workload]})
+            load = section.overrideWorkload if section.overrideWorkload != None else section.workload
+            courseDict.update({section.courseID:courseDict.get(section.courseID,[])+[load]})
         return round(sum([sum(loads)/len(loads) for loads in courseDict.values()]),2)
     def getInstructorRating(self) -> float:
         allRatings = [section.instructorRating for section in self.sections]
