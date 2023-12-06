@@ -18,5 +18,5 @@ pandas
 
 Shortcuts:
 you can add courses and course groups to the
-./data/courses.txt file to have courses
-add on open
+./data/courses.txt file to have courses add on open
+also can save courses in app and will autoload

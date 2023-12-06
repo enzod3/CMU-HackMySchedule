@@ -34,7 +34,7 @@ def onAppStart(app: any):
     app.workloadWeight = 0.33
     app.ratingWeight = 0.33
     app.breakWeight = 0.33
-    # should be loaded/stored
+
     #------------- APP STORAGE --------------
     app.schedules = []
     app.courseGroup = dict()# Key: list[Course]
@@ -42,13 +42,14 @@ def onAppStart(app: any):
 
     # ---------- APP VIEW STATE --------------
     app.state = dict()
-    app.state["selectedMenu"] = "sections" 
+    app.state["selectedMenu"] = "schedules" 
     app.state["activeButtons"] = []
     app.state["courseInput"] = ""
     app.state["groupInput"] = ""
     app.state["courseInputError"] = ""
     app.state["selectedScheduleIndex"] = 0
     app.state["schedulePage"] = 0
+    app.state["sectionsPage"] = 0
     app.state["unitPopup"] = False
     app.state["unitPopupInput"] = ""
     app.state["courseEditPopup"] = False
@@ -130,30 +131,52 @@ def onKeyPress(app,key):
             app.state["editPopupCourseWorkloadInput"] += key
         elif key == "backspace":
             app.state["editPopupCourseWorkloadInput"] = app.state["editPopupCourseWorkloadInput"][:-1]
-    if app.state["unitPopup"]:
+    
+    elif app.state["unitPopup"]:
         if ((key.isnumeric() or (key == "." and "." not in app.state["unitPopupInput"])) and
             float(app.state["unitPopupInput"] + key) <=30 and len( app.state["unitPopupInput"]) <= 4):
             app.state["unitPopupInput"] += key
         elif key == "backspace":
             app.state["unitPopupInput"] = app.state["unitPopupInput"][:-1]
 
-    elif key.isnumeric() and app.state["selectedMenu"] =="schedules" and len(app.state["courseInput"]) < 5:
-        app.state["courseInput"] += key
-    elif key.isalpha() and len(key) == 1 and app.state["selectedMenu"] =="schedules" and len(app.state["groupInput"]) < 20:
-        app.state["groupInput"] += key
-    elif key =="backspace"  and app.state["selectedMenu"] =="schedules":
-        app.state["courseInput"] = ""
-        app.state["groupInput"] = ""
-    elif key =="enter" and len(app.state["courseInput"]) == 5 and app.state["selectedMenu"] =="schedules":
-        addCourseHelper(app)
-    elif key == "left" and app.state["selectedScheduleIndex"] > 0 and app.state["selectedMenu"] =="builder":
-        app.state["selectedScheduleIndex"] -= 1
-    elif key == "right" and app.state["selectedScheduleIndex"] < (len(app.schedules) -1) and app.state["selectedMenu"] =="builder":
-        app.state["selectedScheduleIndex"] += 1
-    elif key == "left" and app.state["schedulePage"] > 0 and app.state["selectedMenu"] =="schedules":
-        app.state["schedulePage"] -= 1
-    elif key == "right" and app.state["schedulePage"] < (len(app.schedules)//((app.height - 50)/40)) and app.state["selectedMenu"] == "schedules":
-        app.state["schedulePage"] += 1
+
+    elif app.state["selectedMenu"] =="sections":
+        coursesLength = len([x for courses in app.courseGroup.values() for x in courses])
+        if key == "right" and app.state["sectionsPage"] < ((coursesLength-1)//2):
+            app.state["sectionsPage"] += 1
+        elif key == "left" and app.state["sectionsPage"] > 0:
+            app.state["sectionsPage"] -= 1
+        elif key.isnumeric() and len(app.state["courseInput"]) < 5:
+            app.state["courseInput"] += key
+        elif key.isalpha() and len(key) == 1 and len(app.state["groupInput"]) < 20:
+            app.state["groupInput"] += key
+        elif key =="backspace" :
+            app.state["courseInput"] = ""
+            app.state["groupInput"] = ""
+        elif key =="enter" and len(app.state["courseInput"]) == 5:
+            addCourseHelper(app)
+    
+    elif app.state["selectedMenu"] =="schedules":
+        if key == "left" and app.state["schedulePage"] > 0:
+            app.state["schedulePage"] -= 1
+        elif key == "right" and app.state["schedulePage"] < (len(app.schedules)//((app.height - 50)/40)):
+            app.state["schedulePage"] += 1
+        elif key.isnumeric() and len(app.state["courseInput"]) < 5:
+            app.state["courseInput"] += key
+        elif key.isalpha() and len(key) == 1 and len(app.state["groupInput"]) < 20:
+            app.state["groupInput"] += key
+        elif key =="backspace" :
+            app.state["courseInput"] = ""
+            app.state["groupInput"] = ""
+        elif key =="enter" and len(app.state["courseInput"]) == 5:
+            addCourseHelper(app)
+
+    elif app.state["selectedMenu"] =="builder":
+        if key == "left" and app.state["selectedScheduleIndex"] > 0:
+            app.state["selectedScheduleIndex"] -= 1
+        elif key == "right" and app.state["selectedScheduleIndex"] < (len(app.schedules) -1):
+            app.state["selectedScheduleIndex"] += 1
+
 
 
 if __name__ == "__main__":

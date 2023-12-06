@@ -28,6 +28,9 @@ class Period():
 class Day():
     def __init__(self,day:str,begin:str,end:str,bld_room:str,location:str,instructors: list[str]):
         self.weekday = day
+        self.begin = begin
+        self.end = end
+        self.timeStr = f'{self.begin} - {self.end}'
         self.period = Period(day,begin,end)
         self.bld_room = bld_room
         self.location = location
@@ -54,7 +57,7 @@ class Day():
 
 #Section is a collection of Days that make up a Lecture or Section
 class Section(): 
-    def __init__(self,app:any,courseID: str, title:str,units:float, color, section:str,days:str,begin:str,end:str,bld_room:str,location:str, instructors: list[str]):
+    def __init__(self,app:any,courseID: str, title:str,units:float, color, section:str,days:str,begin:str,end:str,bld_room:str,location:str, instructors: list[str],blacklisted: Optional[bool] = False):
         self.app = app
         self.courseID = courseID
         self.title = title
@@ -65,6 +68,7 @@ class Section():
         self.workload = None
         self.instructorRating = None
         self.days = set()
+        self.blacklisted = blacklisted
         self.addDays(days,begin,end,bld_room,location,instructors)
     def __repr__(self):
         return f"{self.courseID} {self.section}"
@@ -77,6 +81,8 @@ class Section():
         (workload,rating) = getSectionReview(self.app,self)
         self.workload = self.units if workload == None else workload
         self.instructorRating = rating
+    def toggleBlacklist(self):
+        self.blacklisted = not self.blacklisted
     def conflicts(self,other):
         for day1 in self.days:
             for day2 in other.days:
@@ -142,11 +148,12 @@ class Course():
             for section in lecture.sections:
                 section.overrideWorkload = workload
 
-
     def getSectionLectureCombos(self):
         combos = []
-        for lecture in self.lectures:
-            sections = [None] if len(lecture.sections) == 0 else lecture.sections
+        availableLectures =  [lecture for lecture in self.lectures if not lecture.lecture.blacklisted]
+        for lecture in availableLectures:
+            availableSections =  [section for section in lecture.sections if not section.blacklisted]
+            sections = [None] if len(lecture.sections) == 0 else availableSections #some lectures have no sections
             combos += createCombos([[lecture.lecture],sections])
         return combos
         

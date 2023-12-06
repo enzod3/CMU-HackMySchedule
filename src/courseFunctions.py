@@ -22,6 +22,9 @@ def generateSchedules(app: any):
     allSchedules = [schedule for schedule in allSchedules if schedule != None]
 
     app.state["selectedScheduleIndex"] = 0
+    app.state["schedulePage"] = 0
+    allCourses = [x for courses in app.courseGroup.values() for x in courses]
+    app.state["sectionsPage"] = min(app.state["sectionsPage"],(len(allCourses)-1)//2)
     allSchedules = sorted(allSchedules,key=lambda schedule: schedule.getOverall(),reverse=True)
     app.schedules = allSchedules
 

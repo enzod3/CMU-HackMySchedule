@@ -111,6 +111,8 @@ class NavBar():
         yOff+= 30
         drawLabel("Courses",self.width//2,yOff,size=16)
         yOff+= 20
+        if len(self.app.schedules) == 0:
+            return
         courseIDs = {section.courseID for section in self.app.schedules[self.app.state["selectedScheduleIndex"]].sections}
         for key in self.app.courseGroup:
             for course in self.app.courseGroup[key]:
@@ -174,16 +176,17 @@ class CourseView():
     def drawGrid(self):
         xOff = self.coursesOffset + self.timeWidth
         viewWidth = self.app.width - xOff
+        beginIndex = 1
         if self.app.schedules:
             allTimePeriods = [day.period.timeRange for section in self.app.schedules[self.app.state["selectedScheduleIndex"]].sections for day in section.days]
             allTimes = [x for t in allTimePeriods for x in t]
-            beginIndex = [0,1][min(allTimes)>=540] #start at 8 or 9am
+            beginIndex = [0,1][min(allTimes)>540] #start at 8 or 9am
             endIndex = 9 + max((math.ceil(max(allTimes)/60)-17),0) #how many hours after 4pm should it end (index9=4pm)
             self.viewTimes = self.times[beginIndex:endIndex] 
         else:
-            self.viewTimes[1:9] #9:00 AM to 4:00 PM 
+            self.viewTimes = self.times[1:9] #9:00 AM to 4:00 PM 
         for i in range(len(self.viewTimes)+1): #No out of range because no class past 11PM
-            time = self.times[i]
+            time = self.times[i+beginIndex]
             viewHeight = self.app.height-40 - self.bottomPadding
             drawLabel(time,xOff-10,self.yOffset+i*((viewHeight)//len(self.viewTimes)),align="right",size=self.app.secondaryFontSize)
             drawLine(xOff,self.yOffset+i*((viewHeight)//len(self.viewTimes)),self.app.width,self.yOffset+i*((viewHeight)//len(self.viewTimes)),fill=rgb(235,236,238),lineWidth=3)
@@ -201,7 +204,6 @@ class CourseView():
             minsBegin = viewPeriod.timeRange[0]
             minsEnd = viewPeriod.timeRange[1] + 60  #add 60 because an hour extra is showed on schedule
             minsLength = minsEnd - minsBegin
-            
             for section in self.app.schedules[self.app.state["selectedScheduleIndex"]].sections:
                 for day in section.days:
                     beginP = (day.period.timeRange[0] - minsBegin)/minsLength 
@@ -272,37 +274,27 @@ class ScheduleView():
         if len(self.app.schedules) > 0: # bottom line because we arent drawing rects
             drawLine(self.xOffset,yOff,self.xOffset+viewWidth,yOff,lineWidth=.5,fill=rgb(175,175,175))
     
-#View of all Sections in each course
+#View of all Sections in each course and blacklist
 class SectionsView():
     def __init__(self, app:any, xOffset: int):
         self.app = app
         self.xOffset = xOffset
-        self.yOffset = 50
+        self.yOffset = 80
         self.rowHeight = 40
         self.headerTextSize = 16
 
     def draw(self):
-        viewWidth = (self.app.width-self.xOffset)//2
-        yOff = self.yOffset
         allCourses = [x for courses in self.app.courseGroup.values() for x in courses]
-        for course in allCourses:
-            #drawCourse here
-            # drawLabel(course.courseID,self.xOffset,yOff,size=self.app.primaryFontSize,align="left")
-            yOff = self.drawCourseTitle(self.xOffset,viewWidth-20,40,course,yOff)
-            yOff = self.drawCourseSections(self.xOffset,viewWidth-20,20,course,yOff)
-            yOff += 10
-            # for course in self.app.courseGroup[key]:
-            #     newY = self.drawCourse(35,course,yOff)
-            #     courseEditButton = Button(lambda x=course: (self.app.state.update({"courseEditPopup":True}),self.app.state.update({"editPopupCourseWorkloadInput":str(x.units)}),self.app.state.update({"editPopupCourse":x})),self.width-60,7.5+yOff,20,20,fill="White",opacity=50)
-            #     self.app.state["activeButtons"] += [courseEditButton]
-            #     courseEditButton.draw()
-            #     drawImage("../assets/pencil-60-16.png",self.width-58,9.5+yOff)
-            #     courseRemoveButton = Button(lambda x=course,key=key: (self.app.courseGroup[key].remove(x),generateSchedules(self.app)),self.width-35,7.5+yOff,20,20,fill="White",opacity=50)
-            #     self.app.state["activeButtons"] += [courseRemoveButton]
-            #     courseRemoveButton.draw()
-            #     drawImage("../assets/x-19-16.png",self.width-33,9.5+yOff)
-
-            #     yOff += newY
+        sectionPage = self.app.state["sectionsPage"]+1
+        label = f"Page {sectionPage} of {(len(allCourses)-1)//2+1}" if len(self.app.schedules) != 0 else "Warning: No Schedules"
+        drawLabel(label,self.app.width - 40,20,size=16,align="right",bold= True)
+        viewWidth = (self.app.width-self.xOffset)//2
+        xOff = self.xOffset
+        for course in allCourses[self.app.state["sectionsPage"]*2:((self.app.state["sectionsPage"]+1)*2)]:
+            yOff = self.yOffset
+            yOff = self.drawCourseTitle(xOff,viewWidth-20,40,course,yOff)
+            yOff = self.drawCourseSections(xOff,viewWidth-20,30,course,yOff)
+            xOff += (self.app.width-self.xOffset)//2
     
     def drawCourseTitle(self,x: int,width:int,height:int, course: Course, yOff: int) -> int: #returns added yOff
         drawRect(x+10,yOff,width-20,height,fill=course.color)
@@ -310,11 +302,24 @@ class SectionsView():
         yOff += height
         return yOff
     def drawCourseSections(self,x: int,width:int,height:int, course: Course, yOff: int) -> int:
-        # print(len(course.lectures))
         for lecture in course.lectures:
-            print(yOff)
-            drawRect(x+10,yOff,width-20,height+5,fill=course.color)
-            drawRect(x+width//2,yOff+(height)//2,width-40,height,align="center",fill="White")
-            drawLabel(f"{lecture.lecture}",x+width//2,yOff+(height)//2,size=14)
-            yOff += height + 5
+            yOff+=5
+            drawRect(x+10,yOff-5,width-20,height+10,fill=course.color)
+            lectureFunc = lambda x=lecture.lecture: (x.toggleBlacklist(),generateSchedules(self.app))
+            lecButton = Button(lectureFunc,x+width//2,yOff+(height)//2,width-40,height,align="center",fill="White",opacity=[100,40][lecture.lecture.blacklisted])
+            lecButton.draw()
+            self.app.state["activeButtons"]+=[lecButton]
+            timeString = ", ".join(set([day.timeStr for day in lecture.lecture.days]))
+            drawLabel(f"{lecture.lecture.section} {timeString}",x+width//2,yOff+(height)//2,size=14,bold=True)
+            yOff += height
+            sections = lecture.sections
+            for section in sorted(sections,key=lambda s: s.section):
+                drawRect(x+10,yOff,width-20,height+5,fill=course.color)
+                sectionFunc = lambda x=section: (x.toggleBlacklist(),generateSchedules(self.app))
+                secButton = Button(sectionFunc,x+width//2,yOff+(height)//2,width-60,height-10,align="center",fill="White",opacity=[100,40][section.blacklisted])
+                secButton.draw()
+                self.app.state["activeButtons"]+=[secButton]
+                timeString = ", ".join(set([day.timeStr for day in section.days]))
+                drawLabel(f"{section.section} {timeString}",x+width//2,yOff+(height)//2,size=14)
+                yOff += height-5
         return yOff
