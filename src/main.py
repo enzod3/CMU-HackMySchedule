@@ -1,7 +1,7 @@
 import pandas as pd
 from cmu_graphics import drawLabel,drawRect,rgb,runApp,app
 from courseFunctions import generateSchedules,addCourse,addCourseHelper
-from UI import NavBar,CourseView,ScheduleView,Button
+from UI import NavBar,CourseView,ScheduleView,SectionsView,Button
 
 
 def onAppStart(app: any):
@@ -9,17 +9,16 @@ def onAppStart(app: any):
     mask = app.course_df['Location'].str.contains('Qatar', na=False)
     app.course_df = app.course_df[~mask].reset_index(drop=True) #remove Qatar courses
     app.course_df = app.course_df.dropna(thresh=2).reset_index(drop=True)#remove blank and 1 val rows
-
     #Course info come from https://enr-apps.as.cmu.edu/open/SOC/SOCServlet/completeSchedule
     app.rating_df = pd.read_json("../data/TeacherRatings.json")
     #Ratings from Scotty Lab's CMU Courses, site: https://cmucourses.com/
-
     app.primaryFontSize = 14
     app.secondaryFontSize = 12
     app.minUnits = 36
     app.navbar = NavBar(app,350)
     app.courseview = CourseView(app,350)
     app.scheduleview = ScheduleView(app,350)
+    app.sectionsview = SectionsView(app,350)
     app.popupUnitButton = Button(lambda: (app.state.update({"unitPopup":False}),
                                                 addCourse(app,app.state["unitPopupGroupID"],app.state["unitPopupCourseID"],units=app.state["unitPopupInput"]),
                                                 app.state.update({"unitPopupInput":""})),
@@ -42,7 +41,7 @@ def onAppStart(app: any):
 
     # ---------- APP VIEW STATE --------------
     app.state = dict()
-    app.state["selectedMenu"] = "schedules" 
+    app.state["selectedMenu"] = "sections" 
     # app.state["selectedCourseGroup"] = None
     app.state["activeButtons"] = []
     app.state["courseInput"] = ""
@@ -78,6 +77,8 @@ def redrawAll(app: any):
             app.courseview.draw()
         case "schedules":
             app.scheduleview.draw()
+        case "sections":
+            app.sectionsview.draw()
     drawPopups(app)
 
 def drawPopups(app:any):

@@ -20,18 +20,20 @@ class NavBar():
     def draw(self):
         drawRect(0,0,self.width,self.app.height,fill=self.bg_color)
         self.builderButton.draw()
-        drawLabel("Course View",self.width//2,45,fill="White",size=self.app.primaryFontSize)
+        drawLabel("Course View",self.width//2,35,fill="White",size=self.app.primaryFontSize)
         self.app.state["activeButtons"] += [self.builderButton]
         self.schedulesButton.draw()
-        drawLabel("Schedules View",self.width//2,90,fill="White",size=self.app.primaryFontSize)
+        drawLabel("Schedules View",self.width//2,70,fill="White",size=self.app.primaryFontSize)
         self.app.state["activeButtons"] += [self.schedulesButton]
         self.sectionsButton.draw()
-        drawLabel("Section Blacklist",self.width//2,90,fill="White",size=self.app.primaryFontSize)
+        drawLabel("Section Blacklist",self.width//2,105,fill="White",size=self.app.primaryFontSize)
         self.app.state["activeButtons"] += [self.sectionsButton]
         match self.app.state["selectedMenu"]:
             case "builder":
                 self.drawScheduleSection()
             case "schedules":
+                self.drawNavCourses()
+            case "sections":
                 self.drawNavCourses()
 
     def drawNavCourses(self):
@@ -269,3 +271,38 @@ class ScheduleView():
         if len(self.app.schedules) > 0: #border rect
             drawLine(self.xOffset,yOff,self.xOffset+viewWidth,yOff,lineWidth=.5,fill=rgb(175,175,175))
     
+
+class SectionsView():
+    def __init__(self, app:any, xOffset: int):
+        self.app = app
+        self.xOffset = xOffset
+        self.yOffset = 50
+        self.rowHeight = 40
+        self.headerTextSize = 16
+
+    def draw(self):
+        viewWidth = (self.app.width-self.xOffset)//2
+        yOff = self.yOffset
+        allCourses = [x for courses in self.app.courseGroup.values() for x in courses]
+        for course in allCourses:
+            #drawCourse here
+            # drawLabel(course.courseID,self.xOffset,yOff,size=self.app.primaryFontSize,align="left")
+            yOff += self.drawCourse(self.xOffset,viewWidth-20,40,course,yOff)
+            # for course in self.app.courseGroup[key]:
+            #     newY = self.drawCourse(35,course,yOff)
+            #     courseEditButton = Button(lambda x=course: (self.app.state.update({"courseEditPopup":True}),self.app.state.update({"editPopupCourseWorkloadInput":str(x.units)}),self.app.state.update({"editPopupCourse":x})),self.width-60,7.5+yOff,20,20,fill="White",opacity=50)
+            #     self.app.state["activeButtons"] += [courseEditButton]
+            #     courseEditButton.draw()
+            #     drawImage("../assets/pencil-60-16.png",self.width-58,9.5+yOff)
+            #     courseRemoveButton = Button(lambda x=course,key=key: (self.app.courseGroup[key].remove(x),generateSchedules(self.app)),self.width-35,7.5+yOff,20,20,fill="White",opacity=50)
+            #     self.app.state["activeButtons"] += [courseRemoveButton]
+            #     courseRemoveButton.draw()
+            #     drawImage("../assets/x-19-16.png",self.width-33,9.5+yOff)
+
+            #     yOff += newY
+    
+    def drawCourse(self,x: int,width:int,height:int, course: Course, yOff: int) -> int: #returns added yOff
+        drawRect(x+10,yOff,width-20,height,fill=course.color)
+        drawLabel(course.title[:50],x+15,yOff+10,size=self.app.secondaryFontSize,align="left",fill="White")
+        drawLabel(course.courseID,x+15,yOff+25,size=self.app.secondaryFontSize,align="left",fill="White")
+        return height+5
