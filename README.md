@@ -68,7 +68,7 @@ python main.py
 <!-- Usage-->
 <h2 id="usage">Usage</h2>
 
-####Schedules View
+##Schedules View
 <img src="./screenshots/schedules.png">
 
 <table>
@@ -95,7 +95,7 @@ python main.py
 </table>
 <br>
 
-####Courses View
+##Courses View
 <img src="./screenshots/courses.png">
 
 <table>
@@ -106,7 +106,7 @@ python main.py
 </table>
 <br>
 
-####Sections View
+##Sections View
 <img src="./screenshots/sections.png">
 
 <table>
