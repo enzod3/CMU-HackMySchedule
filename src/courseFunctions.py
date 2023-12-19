@@ -55,7 +55,7 @@ def clearCourses(app):
 
 #Save Courses to Save file
 def saveCourses(app):
-    with open('../data/courses.txt', 'w') as file:
+    with open('./data/courses.txt', 'w') as file:
         for group, courseIDs in app.courseGroup.items():
             courseIDs = ', '.join(map(str, courseIDs))
             file.write(f"{group}: {courseIDs}\n")

@@ -6,12 +6,12 @@ from UI import NavBar,CourseView,ScheduleView,SectionsView,Button
 
 #cmu graphics on app start
 def onAppStart(app: any):
-    app.course_df = pd.read_csv("../data/spring_24.dat", delimiter='\t')
+    app.course_df = pd.read_csv("./data/spring_24.dat", delimiter='\t')
     mask = app.course_df['Location'].str.contains('Qatar', na=False)
     app.course_df = app.course_df[~mask].reset_index(drop=True) #remove Qatar courses
     app.course_df = app.course_df.dropna(thresh=2).reset_index(drop=True)#remove blank and 1 val rows
     #Course info come from https://enr-apps.as.cmu.edu/open/SOC/SOCServlet/completeSchedule
-    app.rating_df = pd.read_json("../data/TeacherRatings.json")
+    app.rating_df = pd.read_json("./data/TeacherRatings.json")
     #Ratings from Scotty Lab's CMU Courses, site: https://cmucourses.com/
     app.primaryFontSize = 14
     app.secondaryFontSize = 12
@@ -56,7 +56,7 @@ def onAppStart(app: any):
     app.state["editPopupCourse"] = None
     app.state["editPopupCourseWorkloadInput"] = ""
     #-----------------------------------------
-    with open('../data/courses.txt', 'r') as file:
+    with open('./data/courses.txt', 'r') as file:
         for line in file:
             courses = line.split(':')
             group = courses[0].strip()

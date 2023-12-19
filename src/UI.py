@@ -72,11 +72,11 @@ class NavBar():
                 courseEditButton = Button(lambda x=course: (self.app.state.update({"courseEditPopup":True}),self.app.state.update({"editPopupCourse":x})),self.width-60,7.5+yOff,20,20,fill="White",opacity=50) #self.app.state.update({"editPopupCourseWorkloadInput":str(x.units)})
                 self.app.state["activeButtons"] += [courseEditButton]
                 courseEditButton.draw()
-                drawImage("../assets/pencil-60-16.png",self.width-58,9.5+yOff)
+                drawImage("./assets/pencil-60-16.png",self.width-58,9.5+yOff)
                 courseRemoveButton = Button(lambda x=course: (self.app.courseGroup["Required"].remove(x),generateSchedules(self.app)),self.width-35,7.5+yOff,20,20,fill="White",opacity=50)
                 self.app.state["activeButtons"] += [courseRemoveButton]
                 courseRemoveButton.draw()
-                drawImage("../assets/x-19-16.png",self.width-33,9.5+yOff)
+                drawImage("./assets/x-19-16.png",self.width-33,9.5+yOff)
 
                 yOff += newY
         for key in self.app.courseGroup:
@@ -89,11 +89,11 @@ class NavBar():
                 courseEditButton = Button(lambda x=course: (self.app.state.update({"courseEditPopup":True}),self.app.state.update({"editPopupCourseWorkloadInput":str(x.units)}),self.app.state.update({"editPopupCourse":x})),self.width-60,7.5+yOff,20,20,fill="White",opacity=50)
                 self.app.state["activeButtons"] += [courseEditButton]
                 courseEditButton.draw()
-                drawImage("../assets/pencil-60-16.png",self.width-58,9.5+yOff)
+                drawImage("./assets/pencil-60-16.png",self.width-58,9.5+yOff)
                 courseRemoveButton = Button(lambda x=course,key=key: (self.app.courseGroup[key].remove(x),generateSchedules(self.app)),self.width-35,7.5+yOff,20,20,fill="White",opacity=50)
                 self.app.state["activeButtons"] += [courseRemoveButton]
                 courseRemoveButton.draw()
-                drawImage("../assets/x-19-16.png",self.width-33,9.5+yOff)
+                drawImage("./assets/x-19-16.png",self.width-33,9.5+yOff)
 
                 yOff += newY
                 
