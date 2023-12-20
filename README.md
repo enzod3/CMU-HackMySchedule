@@ -32,7 +32,7 @@
 This application was the final submission to CMU's 15-112 term project assignment. Other projects like this can be seen on the course's <a href="https://www.cs.cmu.edu/~112/index.html">homepage</a>. This project and 11 others were recognized at the end of the Course as unique out of 300 total projects.
 <br />
 <br />
-<p>HackMySchedule is a schedule planner designed to assist students at Carnegie Mellon plan their schedules. It offers a user-friendly interface to rank various course combinations, helping you find the schedule that best fits your needs and preferences. It uses CMU&#39;s course catalog and student/teacher evaluations to rank schedules based on Workload, Instructor Rating, and Median Break. Specific lectures and recitations can be blacklisted to give more control over a schedule. </p>
+<p>HackMySchedule is a schedule planner designed to assist students at Carnegie Mellon plan their schedules. It offers a user-friendly interface to rank various course combinations, helping you find the schedule that best fits your needs and preferences. It uses CMU&#39;s course catalog and student/teacher evaluations to rank schedules (using some dynamic programming approaches) based on Workload, Instructor Rating, and Median Break. Specific lectures and recitations can be blacklisted to give more control over a schedule. </p>
 <p>Current Features</p>
 <ul>
 <li>Schedule View</li>
