@@ -5,6 +5,9 @@
   <h3 align="center">CMU HackMySchedule</h3>
   <p align="center">
     A schedule planning application for Carnegie Mellon students.
+    <br />
+    <a href="https://www.youtube.com/watch?v=pWDo0WaSeV4"><strong>Demo Video»</strong></a>
+    <br />
   </p>
 </p>
 
@@ -26,9 +29,10 @@
 </ul>
 <!-- ABOUT THE PROJECT -->
 <h2 id="about-the-project">About The Project</h2>
-This application was the final submission to CMU's 15-112 term project assignment. Other projects like this can be seen on the course's [homepage](https://www.cs.cmu.edu/~112/index.html).
-
-<p>HackMySchedule is a schedule planner designed to assist students at Carnegie Mellon plan their schedules. It offers a user-friendly interface to rank various course combinations, helping you find the schedule that best fits your needs and preferences. It uses CMU&#39;s course catalog and student/teacher evaluations to rank schedules based on Workload, Instructor Rating, and Median Break. Lastly, specific lectures and recitations can be blacklisted to give more control over a schedule. </p>
+This application was the final submission to CMU's 15-112 term project assignment. Other projects like this can be seen on the course's <a href="https://www.cs.cmu.edu/~112/index.html">homepage</a>. This project and 11 others were recognized at the end of the Course as unique out of 300 total projects.
+<br />
+<br />
+<p>HackMySchedule is a schedule planner designed to assist students at Carnegie Mellon plan their schedules. It offers a user-friendly interface to rank various course combinations, helping you find the schedule that best fits your needs and preferences. It uses CMU&#39;s course catalog and student/teacher evaluations to rank schedules based on Workload, Instructor Rating, and Median Break. Specific lectures and recitations can be blacklisted to give more control over a schedule. </p>
 <p>Current Features</p>
 <ul>
 <li>Schedule View</li>
@@ -39,7 +43,7 @@ This application was the final submission to CMU's 15-112 term project assignmen
 <h3 id="built-with">Built With</h3>
 <ul>
 <li><a href="https://www.python.org/">Python</a></li>
-<li>CMUGRAPHICS, Pandas</li>
+<li>Cmu_graphics, Pandas</li>
 </ul>
 <!-- GETTING STARTED -->
 <h2 id="getting-started">Getting Started</h2>
@@ -93,7 +97,7 @@ python main.py
     <td>Click Course</td>
   </tr>
 </table>
-<br>
+<br />
 
 <h3>Courses View</h3>
 <img src="./screenshots/courses.png">
@@ -104,7 +108,7 @@ python main.py
     <td><kbd>←</kbd>, <kbd>→</kbd></td>
   </tr>
 </table>
-<br>
+<br />
 
 <h3>Sections View</h3>
 <img src="./screenshots/sections.png">
@@ -119,7 +123,7 @@ python main.py
     <td>Click Section</td>
   </tr>
 </table>
-<br>
+<br />
 
 <!-- CONTRIBUTING -->
 <h2 id="contributing">Contributing</h2>
